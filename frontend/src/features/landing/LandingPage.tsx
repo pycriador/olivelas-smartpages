@@ -194,7 +194,7 @@ export const LandingPage: React.FC = () => {
           <Dropdown menu={{ items: languageMenuItems }} trigger={['click']}>
             <button
               type="button"
-              className="flex items-center gap-1.5 text-xs text-[#A0AEC0] hover:text-white transition-colors bg-[#141A1E] hover:bg-[#1A2227] px-2.5 sm:px-3 py-1.5 rounded-lg border border-[#22292E] shadow-sm cursor-pointer"
+              className="flex items-center gap-1.5 text-xs text-[#A0AEC0] hover:text-white transition-colors bg-[#141A1E] hover:bg-[#1A2227] px-2.5 sm:px-3 py-1.5 rounded-lg border border-[#22292E] shadow-xs cursor-pointer"
             >
               <GlobalOutlined />
               <span>{getLanguageLabel()}</span>
@@ -228,10 +228,10 @@ export const LandingPage: React.FC = () => {
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] sm:w-[600px] h-[200px] sm:h-[300px] bg-[#F56738]/15 blur-[100px] sm:blur-[120px] rounded-full pointer-events-none" />
 
         {/* Announcement Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#1A2024] border border-[#2D3748] text-xs text-[#E2E8F0] mb-6 sm:mb-8 shadow-sm max-w-full">
-          <Sparkles className="w-3.5 h-3.5 text-[#F56738] flex-shrink-0" />
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#1A2024] border border-[#2D3748] text-xs text-[#E2E8F0] mb-6 sm:mb-8 shadow-xs max-w-full">
+          <Sparkles className="w-3.5 h-3.5 text-[#F56738] shrink-0" />
           <span className="truncate">Hospedagem Estática GitHub Pages-like da Loft</span>
-          <span className="w-1.5 h-1.5 rounded-full bg-[#20A483] flex-shrink-0" />
+          <span className="w-1.5 h-1.5 rounded-full bg-[#20A483] shrink-0" />
           <span className="text-[#20A483] font-medium hidden sm:inline">
             Versionamento Git em /repos
           </span>
@@ -240,7 +240,7 @@ export const LandingPage: React.FC = () => {
         {/* Headline */}
         <h1 className="text-3xl sm:text-5xl lg:text-7xl font-extrabold text-white tracking-tight max-w-4xl leading-[1.15] mb-5 sm:mb-6">
           O GitHub Pages das Builds Estáticas da{' '}
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#F56738] via-[#FF8A65] to-[#F56738]">
+          <span className="text-transparent bg-clip-text bg-linear-to-r from-[#F56738] via-[#FF8A65] to-[#F56738]">
             Loft
           </span>
         </h1>
@@ -248,15 +248,15 @@ export const LandingPage: React.FC = () => {
         {/* Subtitle */}
         <p className="text-base sm:text-lg lg:text-xl text-[#A0AEC0] max-w-3xl mb-8 sm:mb-10 leading-relaxed font-normal">
           Publique builds estáticas em repositórios isolados dentro de{' '}
-          <code className="text-[#E2E8F0] bg-[#1A2024] px-1.5 py-0.5 rounded border border-[#2D3748]">
+          <code className="text-[#E2E8F0] bg-[#1A2024] px-1.5 py-0.5 rounded-sm border border-[#2D3748]">
             /repos/&#123;slug&#125;
           </code>{' '}
           em segundos. Tenha controle de versionamento via Git e interface web, trava de versão (
-          <code className="text-[#E2E8F0] bg-[#1A2024] px-1.5 py-0.5 rounded border border-[#2D3748]">
+          <code className="text-[#E2E8F0] bg-[#1A2024] px-1.5 py-0.5 rounded-sm border border-[#2D3748]">
             version lock
           </code>
           ), aprovação automática ou manual, tokens de deploy{' '}
-          <code className="text-[#E2E8F0] bg-[#1A2024] px-1.5 py-0.5 rounded border border-[#2D3748]">
+          <code className="text-[#E2E8F0] bg-[#1A2024] px-1.5 py-0.5 rounded-sm border border-[#2D3748]">
             opsp_deploy_
           </code>{' '}
           e governança hierárquica (HBAC).
@@ -304,7 +304,7 @@ export const LandingPage: React.FC = () => {
         </div>
 
         {/* Metrics Strip */}
-        <div className="w-full max-w-5xl grid grid-cols-2 md:grid-cols-4 gap-4 p-4 sm:p-6 rounded-2xl bg-[#141A1E]/80 border border-[#22292E] backdrop-blur-sm shadow-xl">
+        <div className="w-full max-w-5xl grid grid-cols-2 md:grid-cols-4 gap-4 p-4 sm:p-6 rounded-2xl bg-[#141A1E]/80 border border-[#22292E] backdrop-blur-xs shadow-xl">
           <div className="text-left px-2 sm:px-4 border-r border-[#22292E]/60">
             <div className="text-xl sm:text-3xl font-extrabold text-[#F56738] font-mono truncate">
               /repos/&#123;slug&#125;
@@ -697,7 +697,7 @@ export const LandingPage: React.FC = () => {
                               href={p.live_url}
                               target="_blank"
                               rel="noreferrer"
-                              className="px-2.5 py-1 rounded bg-[#141A1E] border border-[#22292E] hover:border-[#F56738] text-[#F56738]"
+                              className="px-2.5 py-1 rounded-sm bg-[#141A1E] border border-[#22292E] hover:border-[#F56738] text-[#F56738]"
                             >
                               {p.name} ({p.live_url}) ↗
                             </a>
@@ -825,7 +825,7 @@ python -m app.cli.manage_users set-role \\
 
       {/* 7. Call To Action Footer Banner */}
       <section className="py-20 px-6 lg:px-12 text-center max-w-4xl mx-auto">
-        <div className="p-10 rounded-3xl bg-gradient-to-b from-[#1C2329] to-[#121619] border border-[#2D3748] shadow-2xl">
+        <div className="p-10 rounded-3xl bg-linear-to-b from-[#1C2329] to-[#121619] border border-[#2D3748] shadow-2xl">
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4">
             Pronto para publicar e versionar as builds do seu projeto?
           </h2>
@@ -856,7 +856,7 @@ python -m app.cli.manage_users set-role \\
       {/* 8. Footer */}
       <footer className="mt-auto py-8 px-6 lg:px-12 border-t border-[#22292E] text-xs text-[#718096] flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-[#F56738] flex items-center justify-center font-bold text-white text-[10px]">
+          <div className="w-5 h-5 rounded-sm bg-[#F56738] flex items-center justify-center font-bold text-white text-[10px]">
             ▲
           </div>
           <span>

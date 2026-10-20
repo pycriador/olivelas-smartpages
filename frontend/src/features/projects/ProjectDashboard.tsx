@@ -85,7 +85,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onOpenCreate
     return (
       <Card
         variant="borderless"
-        className="shadow-sm border py-12 text-center"
+        className="shadow-xs border py-12 text-center"
         style={{ backgroundColor: theme.bgContainer, borderColor: theme.colorBorder }}
       >
         <div className="max-w-md mx-auto space-y-4">
@@ -299,7 +299,7 @@ jobs:
 
       {/* Top Banner (Exact aiops-opsbase style) */}
       <div
-        className="p-4 sm:p-6 rounded-2xl border shadow-sm flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 transition-colors"
+        className="p-4 sm:p-6 rounded-2xl border shadow-xs flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 transition-colors"
         style={{
           backgroundColor: theme.bgContainer,
           borderColor: theme.colorBorder,
@@ -405,7 +405,7 @@ jobs:
         <Col xs={24} sm={12} lg={6}>
           <Card
             variant="borderless"
-            className="shadow-sm border h-full"
+            className="shadow-xs border h-full"
             style={{ backgroundColor: theme.bgContainer, borderColor: theme.colorBorder }}
           >
             <Text style={labelStyle} className="text-xs uppercase font-semibold">
@@ -423,7 +423,7 @@ jobs:
         <Col xs={24} sm={12} lg={6}>
           <Card
             variant="borderless"
-            className="shadow-sm border h-full"
+            className="shadow-xs border h-full"
             style={{ backgroundColor: theme.bgContainer, borderColor: theme.colorBorder }}
           >
             <Text style={labelStyle} className="text-xs uppercase font-semibold">
@@ -441,7 +441,7 @@ jobs:
         <Col xs={24} sm={12} lg={6}>
           <Card
             variant="borderless"
-            className="shadow-sm border h-full"
+            className="shadow-xs border h-full"
             style={{ backgroundColor: theme.bgContainer, borderColor: theme.colorBorder }}
           >
             <div className="flex items-center justify-between">
@@ -474,7 +474,7 @@ jobs:
         <Col xs={24} sm={12} lg={6}>
           <Card
             variant="borderless"
-            className="shadow-sm border h-full"
+            className="shadow-xs border h-full"
             style={{ backgroundColor: theme.bgContainer, borderColor: theme.colorBorder }}
           >
             <div className="flex items-center justify-between">
@@ -531,7 +531,7 @@ jobs:
               </div>
             }
             variant="borderless"
-            className="shadow-sm border h-full"
+            className="shadow-xs border h-full"
             style={{ backgroundColor: theme.bgContainer, borderColor: theme.colorBorder }}
             styles={{ body: { padding: 0 } }}
           >
@@ -562,7 +562,7 @@ jobs:
               </div>
             }
             variant="borderless"
-            className="shadow-sm border h-full"
+            className="shadow-xs border h-full"
             style={{ backgroundColor: theme.bgContainer, borderColor: theme.colorBorder }}
           >
             <div className="space-y-3">
@@ -656,7 +656,7 @@ jobs:
           </div>
         }
         variant="borderless"
-        className="shadow-sm border"
+        className="shadow-xs border"
         style={{ backgroundColor: theme.bgContainer, borderColor: theme.colorBorder }}
       >
         {loadingCreds ? (

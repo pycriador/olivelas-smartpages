@@ -240,7 +240,7 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
             >
               Voltar ao Portal
             </Button>
-            <span className="font-mono text-xs text-[#FF774A] bg-[#FF774A]/10 px-2.5 py-1 rounded border border-[#FF774A]/30">
+            <span className="font-mono text-xs text-[#FF774A] bg-[#FF774A]/10 px-2.5 py-1 rounded-sm border border-[#FF774A]/30">
               ROTA OFICIAL DE REPORTE DE ERROS • /errors
             </span>
           </div>

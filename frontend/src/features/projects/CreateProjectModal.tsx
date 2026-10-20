@@ -138,7 +138,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, on
               </div>
               <Paragraph
                 copyable={{ text: createdResult.initial_deploy_token }}
-                className="!mb-0 font-mono text-xs bg-[#131D2B] p-2.5 rounded border border-[#223147] text-emerald-400 break-all"
+                className="mb-0! font-mono text-xs bg-[#131D2B] p-2.5 rounded-sm border border-[#223147] text-emerald-400 break-all"
               >
                 {createdResult.initial_deploy_token}
               </Paragraph>
@@ -238,18 +238,18 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, on
               <BranchesOutlined /> Configuração Git & Repositório (/repos)
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <Form.Item name="github_repo_url" label="GitHub Remote URL (Opcional)" className="sm:col-span-2 !mb-0">
+              <Form.Item name="github_repo_url" label="GitHub Remote URL (Opcional)" className="sm:col-span-2 mb-0!">
                 <Input placeholder="https://github.com/loft-br/meu-frontend.git" />
               </Form.Item>
-              <Form.Item name="github_branch" label="Branch Padrão" className="!mb-0">
+              <Form.Item name="github_branch" label="Branch Padrão" className="mb-0!">
                 <Input placeholder="main" />
               </Form.Item>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-              <Form.Item name="github_subpath" label="Pasta no Repositório (/repos)" className="!mb-0">
+              <Form.Item name="github_subpath" label="Pasta no Repositório (/repos)" className="mb-0!">
                 <Input placeholder="/repos/meu-projeto" />
               </Form.Item>
-              <Form.Item name="github_token" label="GitHub Personal Access Token (Opcional)" className="!mb-0">
+              <Form.Item name="github_token" label="GitHub Personal Access Token (Opcional)" className="mb-0!">
                 <Input.Password placeholder="ghp_••••••••••••" />
               </Form.Item>
             </div>
@@ -261,7 +261,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, on
               label="Aprovação Automática"
               valuePropName="checked"
               tooltip="Quando ativo, novas builds entram em produção automaticamente (a menos que a versão esteja travada)."
-              className="!mb-0"
+              className="mb-0!"
             >
               <Switch checkedChildren="Automática" unCheckedChildren="Manual" />
             </Form.Item>
@@ -271,7 +271,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, on
               label="SPA Router Fallback"
               valuePropName="checked"
               tooltip="Redireciona rotas profundas (ex: /dashboard/users) para index.html."
-              className="!mb-0"
+              className="mb-0!"
             >
               <Switch checkedChildren="SPA Ativo" unCheckedChildren="Estático" />
             </Form.Item>
@@ -280,7 +280,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, on
               name="auto_sync_github"
               label="Auto-Sync GitHub"
               valuePropName="checked"
-              className="!mb-0"
+              className="mb-0!"
             >
               <Switch checkedChildren="Ativo" unCheckedChildren="Manual" />
             </Form.Item>

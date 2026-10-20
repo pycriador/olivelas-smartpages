@@ -103,7 +103,7 @@ export const LoginPage: React.FC = () => {
             <button
               type="button"
               onClick={() => setShowLogin(false)}
-              className="flex items-center gap-2 text-xs sm:text-sm text-[#A0AEC0] hover:text-white transition-colors bg-[#141A1E] hover:bg-[#1A2227] px-3.5 py-2 rounded-xl border border-[#22292E] shadow-sm cursor-pointer"
+              className="flex items-center gap-2 text-xs sm:text-sm text-[#A0AEC0] hover:text-white transition-colors bg-[#141A1E] hover:bg-[#1A2227] px-3.5 py-2 rounded-xl border border-[#22292E] shadow-xs cursor-pointer"
             >
               <ArrowLeftOutlined /> Voltar para Início
             </button>
@@ -111,7 +111,7 @@ export const LoginPage: React.FC = () => {
             <Dropdown menu={{ items: languageMenuItems }} trigger={['click']}>
               <button
                 type="button"
-                className="flex items-center gap-1.5 text-xs text-[#A0AEC0] hover:text-white transition-colors bg-[#141A1E] hover:bg-[#1A2227] px-3 py-2 rounded-xl border border-[#22292E] shadow-sm cursor-pointer"
+                className="flex items-center gap-1.5 text-xs text-[#A0AEC0] hover:text-white transition-colors bg-[#141A1E] hover:bg-[#1A2227] px-3 py-2 rounded-xl border border-[#22292E] shadow-xs cursor-pointer"
               >
                 <GlobalOutlined />
                 <span>{getLanguageLabel()}</span>

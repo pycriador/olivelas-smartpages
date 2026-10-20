@@ -22,6 +22,9 @@ import {
   KeyOutlined,
   ThunderboltOutlined,
   CodeOutlined,
+  SyncOutlined,
+  LinkOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons';
 import { api, extractErrorMessage } from '../../services/api';
 import { useProjectStore } from '../../stores/useProjectStore';
@@ -33,13 +36,22 @@ export interface PublicConfigItem {
   environment: 'production' | 'staging' | 'development' | 'preview';
   opsbase_url: string;
   opsbase_public_key: string;
+  opsbase_project_id?: number | null;
   opsbase_project_slug: string;
-  scopes: string;
+  opsbase_schema_name?: string | null;
+  opsbase_key_prefix?: string | null;
+  opsbase_key_status?: string;
+  opsbase_data_plane_url?: string | null;
+  opsbase_auth_url?: string | null;
+  key_source?: string;
+  scopes: string[] | string;
+  scopes_raw?: string;
   public_vars: Record<string, any>;
   inject_in_html: boolean;
   is_active: boolean;
   env_script_url: string;
   public_api_url: string;
+  last_synced_at?: string | null;
   updated_by_email?: string | null;
   updated_at?: string | null;
 }
@@ -50,6 +62,8 @@ export const PublicConfigManager: React.FC = () => {
   const [selectedEnv, setSelectedEnv] = useState<string>('production');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syncingOpsBase, setSyncingOpsBase] = useState(false);
+  const [syncingCors, setSyncingCors] = useState(false);
   const [savingHeaders, setSavingHeaders] = useState(false);
 
   const [envForm] = Form.useForm();
@@ -64,11 +78,14 @@ export const PublicConfigManager: React.FC = () => {
       setConfigs(list);
       const current = list.find((c) => c.environment === selectedEnv) || list[0];
       if (current) {
+        const scopesStr =
+          current.scopes_raw ||
+          (Array.isArray(current.scopes) ? current.scopes.join(',') : current.scopes || '');
         envForm.setFieldsValue({
-          opsbase_url: current.opsbase_url,
+          opsbase_url: current.opsbase_url || 'http://localhost:8001/api/v1',
           opsbase_public_key: current.opsbase_public_key,
           opsbase_project_slug: current.opsbase_project_slug,
-          scopes: current.scopes,
+          scopes: scopesStr,
           inject_in_html: current.inject_in_html,
           is_active: current.is_active,
           public_vars_json: JSON.stringify(current.public_vars || {}, null, 2),
@@ -106,7 +123,7 @@ export const PublicConfigManager: React.FC = () => {
     }
   }, [activeProject?.id, selectedEnv]);
 
-  const handleSavePublicConfig = async (rotateKey = false) => {
+  const handleSavePublicConfig = async (syncFromOpsBase = false) => {
     if (!activeProject) return;
     try {
       const values = await envForm.validateFields();
@@ -123,24 +140,61 @@ export const PublicConfigManager: React.FC = () => {
       await api.put(`/projects/${activeProject.id}/public-config/${selectedEnv}`, {
         environment: selectedEnv,
         opsbase_url: values.opsbase_url,
-        opsbase_public_key: values.opsbase_public_key,
         opsbase_project_slug: values.opsbase_project_slug,
         scopes: values.scopes,
         public_vars: parsedVars,
         inject_in_html: values.inject_in_html,
         is_active: values.is_active,
-        rotate_public_key: rotateKey,
+        sync_from_opsbase: syncFromOpsBase,
       });
       message.success(
-        rotateKey
-          ? `Nova chave pública Opsbase gerada para ${selectedEnv.toUpperCase()}!`
+        syncFromOpsBase
+          ? `Chave pública sincronizada via Discovery do OpsBase para ${selectedEnv.toUpperCase()}!`
           : `Configuração pública (${selectedEnv.toUpperCase()}) salva com sucesso!`
       );
       await loadConfigs();
+      await fetchProjects(activeProject.id);
     } catch (err) {
       message.error(extractErrorMessage(err, 'Erro ao salvar configuração pública.'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSyncWithOpsBase = async () => {
+    if (!activeProject) return;
+    setSyncingOpsBase(true);
+    try {
+      const slugVal = envForm.getFieldValue('opsbase_project_slug') || activeProject.slug;
+      await api.post(`/projects/${activeProject.id}/opsbase/sync`, {
+        opsbase_project_slug: slugVal,
+        sync_cors: true,
+      });
+      message.success(
+        'Vínculo sincronizado com o endpoint de descoberta do OpsBase (chave anon + CORS alinhado sem redeploy)!'
+      );
+      await loadConfigs();
+      await fetchProjects(activeProject.id);
+    } catch (err) {
+      message.error(extractErrorMessage(err, 'Falha ao sincronizar com o OpsBase Discovery.'));
+    } finally {
+      setSyncingOpsBase(false);
+    }
+  };
+
+  const handleSyncCorsWithOpsBase = async () => {
+    if (!activeProject) return;
+    setSyncingCors(true);
+    try {
+      await api.post(`/projects/${activeProject.id}/opsbase/cors-sync`, {
+        custom_domain: activeProject.custom_domain || null,
+      });
+      message.success('Origens exatas de CORS registradas no OpsPages e no OpsBase!');
+      await fetchProjects(activeProject.id);
+    } catch (err) {
+      message.error(extractErrorMessage(err, 'Falha ao alinhar CORS com o OpsBase.'));
+    } finally {
+      setSyncingCors(false);
     }
   };
 
@@ -226,19 +280,21 @@ export const PublicConfigManager: React.FC = () => {
                 <Alert
                   type="info"
                   showIcon
-                  message="Como funciona a injeção de configuração pública no AIOps OpsPages (P-13)"
+                  message="Vínculo com AIOps OpsBase Discovery & Entrega Runtime no-cache (P-13)"
                   description={
                     <div className="text-xs space-y-1 mt-1">
                       <div>
-                        1. O OpsPages injeta automaticamente{' '}
-                        <code>&lt;script id="opspages-runtime-config"&gt;</code> no{' '}
-                        <code>index.html</code> definindo <code>window.__OPSPAGES_CONFIG__</code> e{' '}
-                        <code>window.__OPSBASE_CONFIG__</code>.
+                        1. Cada projeto do OpsPages é vinculado ao OpsBase via endpoint de descoberta{' '}
+                        <code>/api/v1/projects/by-slug/&#123;slug&#125;/public-config</code>. Não aceita chave digitada manualmente nem placeholder.
                       </div>
                       <div>
-                        2. Também disponibiliza o script virtual{' '}
-                        <code>/pages/{activeProject.slug}/env-config.js?env={selectedEnv}</code> e o endpoint JSON{' '}
-                        <code>/api/v1/public/projects/{activeProject.slug}/config?env={selectedEnv}</code>.
+                        2. O OpsPages injeta automaticamente{' '}
+                        <code>&lt;script id="opspages-runtime-config"&gt;</code> no{' '}
+                        <code>index.html</code> e disponibiliza{' '}
+                        <code>/pages/{activeProject.slug}/env-config.js?env={selectedEnv}</code> e{' '}
+                        <code>/api/v1/public/projects/{activeProject.slug}/config?env={selectedEnv}</code> com{' '}
+                        <code>Cache-Control: no-cache, no-store, must-revalidate</code> (sem gravar no bundle e sem expor{' '}
+                        <code>service_role_key</code>, senha ou URI de banco).
                       </div>
                     </div>
                   }
@@ -263,16 +319,35 @@ export const PublicConfigManager: React.FC = () => {
                     </div>
 
                     {currentCfg && (
-                      <div className="flex items-center gap-2">
-                        <Tag color="green">Ativo</Tag>
-                        <Tooltip title="Rotacionar chave pública com escopo deste ambiente">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Tag color={currentCfg.opsbase_key_status === 'active' ? 'green' : 'red'}>
+                          {currentCfg.opsbase_key_status === 'active' ? 'Discovery Ativo' : 'Chave Revogada'}
+                        </Tag>
+                        {currentCfg.opsbase_project_id && (
+                          <Tag color="blue" icon={<LinkOutlined />}>
+                            OpsBase #{currentCfg.opsbase_project_id} ({currentCfg.opsbase_schema_name})
+                          </Tag>
+                        )}
+                        <Tooltip title="Busca a chave anon pública atualizada diretamente no endpoint de descoberta do OpsBase e alinha o CORS sem redeploy">
                           <Button
                             size="small"
-                            icon={<KeyOutlined />}
-                            onClick={() => handleSavePublicConfig(true)}
-                            loading={saving}
+                            type="primary"
+                            ghost
+                            icon={<SyncOutlined spin={syncingOpsBase} />}
+                            onClick={handleSyncWithOpsBase}
+                            loading={syncingOpsBase}
                           >
-                            Rotacionar Chave Pública
+                            Sincronizar com OpsBase (Discovery)
+                          </Button>
+                        </Tooltip>
+                        <Tooltip title="Registra as origens exatas do site na allowlist de CORS do OpsPages e do OpsBase">
+                          <Button
+                            size="small"
+                            icon={<CheckCircleOutlined />}
+                            onClick={handleSyncCorsWithOpsBase}
+                            loading={syncingCors}
+                          >
+                            Alinhar CORS
                           </Button>
                         </Tooltip>
                       </div>
@@ -282,17 +357,19 @@ export const PublicConfigManager: React.FC = () => {
                   <Form form={envForm} layout="vertical">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <Form.Item
-                        label="URL do AIOps Opsbase (por Ambiente)"
+                        label="URL do AIOps OpsBase (por Ambiente)"
                         name="opsbase_url"
                         rules={[{ required: true }]}
+                        extra="Padrão dev: http://localhost:8001/api/v1 (configurável por ambiente para futuros DNS próprios)"
                       >
-                        <Input placeholder="http://localhost:8000" />
+                        <Input placeholder="http://localhost:8001/api/v1" />
                       </Form.Item>
 
                       <Form.Item
-                        label="Slug do Projeto no Opsbase"
+                        label="Slug do Projeto Vinculado no OpsBase"
                         name="opsbase_project_slug"
                         rules={[{ required: true }]}
+                        extra="Projeto correspondente no OpsBase usado na descoberta automática"
                       >
                         <Input placeholder={activeProject.slug} />
                       </Form.Item>
@@ -300,10 +377,12 @@ export const PublicConfigManager: React.FC = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <Form.Item
-                        label="Chave Pública com Escopo (Opsbase Public Key)"
+                        label="Chave Pública Anon (Obtida via Discovery do OpsBase — Somente Leitura)"
                         name="opsbase_public_key"
+                        extra="Valores digitados manualmente ou placeholders são bloqueados (HTTP 400). Use 'Sincronizar com OpsBase'."
                       >
                         <Input
+                          readOnly
                           className="font-mono text-xs"
                           suffix={
                             <Button
@@ -314,7 +393,7 @@ export const PublicConfigManager: React.FC = () => {
                                 const val = envForm.getFieldValue('opsbase_public_key');
                                 if (val) {
                                   navigator.clipboard.writeText(val);
-                                  message.success('Chave pública copiada!');
+                                  message.success('Chave pública anon copiada!');
                                 }
                               }}
                             />
@@ -327,7 +406,7 @@ export const PublicConfigManager: React.FC = () => {
                         name="scopes"
                         rules={[{ required: true }]}
                       >
-                        <Input placeholder="public:read,data:query,realtime:subscribe" />
+                        <Input placeholder="data:read,data:write,auth:public,realtime:subscribe" />
                       </Form.Item>
                     </div>
 

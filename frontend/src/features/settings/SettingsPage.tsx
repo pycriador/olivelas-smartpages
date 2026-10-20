@@ -128,7 +128,7 @@ export const SettingsPage: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-2 pr-20">
               <span
-                className="w-4 h-4 rounded-full flex-shrink-0"
+                className="w-4 h-4 rounded-full shrink-0"
                 style={{ backgroundColor: item.primary }}
               />
               <span className="font-semibold text-sm truncate" style={{ color: item.colorText }}>
@@ -140,7 +140,7 @@ export const SettingsPage: React.FC = () => {
             <div className="flex items-center gap-2 my-3 p-2 rounded-lg bg-black/5">
               <div className="flex flex-col items-center gap-1">
                 <div
-                  className="w-6 h-6 rounded-md shadow-sm border border-black/10"
+                  className="w-6 h-6 rounded-md shadow-xs border border-black/10"
                   style={{ backgroundColor: item.primary }}
                   title="Primary Color"
                 />
@@ -148,7 +148,7 @@ export const SettingsPage: React.FC = () => {
               </div>
               <div className="flex flex-col items-center gap-1">
                 <div
-                  className="w-6 h-6 rounded-md shadow-sm border border-black/10"
+                  className="w-6 h-6 rounded-md shadow-xs border border-black/10"
                   style={{ backgroundColor: item.bgSidebar }}
                   title="Sidebar Color"
                 />
@@ -156,7 +156,7 @@ export const SettingsPage: React.FC = () => {
               </div>
               <div className="flex flex-col items-center gap-1">
                 <div
-                  className="w-6 h-6 rounded-md shadow-sm border border-black/10"
+                  className="w-6 h-6 rounded-md shadow-xs border border-black/10"
                   style={{ backgroundColor: item.bgContainer }}
                   title="Container Color"
                 />
@@ -164,7 +164,7 @@ export const SettingsPage: React.FC = () => {
               </div>
               <div className="flex flex-col items-center gap-1">
                 <div
-                  className="w-6 h-6 rounded-md shadow-sm border border-black/10"
+                  className="w-6 h-6 rounded-md shadow-xs border border-black/10"
                   style={{ backgroundColor: item.bgLayout }}
                   title="Layout Color"
                 />
@@ -210,7 +210,7 @@ export const SettingsPage: React.FC = () => {
       {activeProject && (
         <Card
           variant="borderless"
-          className="shadow-sm border"
+          className="shadow-xs border"
           style={{ borderColor: theme.colorBorder, backgroundColor: theme.bgContainer }}
           title={
             <div className="flex items-center gap-2">
@@ -341,7 +341,7 @@ export const SettingsPage: React.FC = () => {
       {/* Language Section */}
       <Card
         variant="borderless"
-        className="shadow-sm border"
+        className="shadow-xs border"
         style={{ borderColor: theme.colorBorder, backgroundColor: theme.bgContainer }}
         title={
           <div className="flex items-center gap-2">
@@ -362,7 +362,7 @@ export const SettingsPage: React.FC = () => {
                 key={opt.key}
                 onClick={() => setLocale(opt.key)}
                 className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${
-                  isSelected ? 'shadow-sm ring-1 ring-offset-1' : 'hover:border-gray-400'
+                  isSelected ? 'shadow-xs ring-1 ring-offset-1' : 'hover:border-gray-400'
                 }`}
                 style={{
                   borderColor: isSelected ? theme.primary : theme.colorBorder,
@@ -386,7 +386,7 @@ export const SettingsPage: React.FC = () => {
       {/* Themes Section */}
       <Card
         variant="borderless"
-        className="shadow-sm border"
+        className="shadow-xs border"
         style={{ borderColor: theme.colorBorder, backgroundColor: theme.bgContainer }}
         title={
           <div className="flex items-center gap-2">
@@ -427,7 +427,7 @@ export const SettingsPage: React.FC = () => {
       {/* Live Preview Card */}
       <Card
         variant="borderless"
-        className="shadow-sm border"
+        className="shadow-xs border"
         style={{ borderColor: theme.colorBorder, backgroundColor: theme.bgContainer }}
         title={
           <div className="flex items-center gap-2">
@@ -457,7 +457,7 @@ export const SettingsPage: React.FC = () => {
       {activeProject && (
         <Card
           variant="borderless"
-          className="shadow-sm border"
+          className="shadow-xs border"
           style={{ borderColor: '#FCA5A5', backgroundColor: theme.bgContainer }}
           title={
             <div className="flex items-center gap-2 text-red-500">

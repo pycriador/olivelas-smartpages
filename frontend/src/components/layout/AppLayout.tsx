@@ -253,7 +253,7 @@ export const AppLayout: React.FC = () => {
             style={{ borderColor: isDark ? '#22292E' : '#2A3640' }}
           >
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-md flex-shrink-0 cursor-pointer"
+              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-md shrink-0 cursor-pointer"
               style={{
                 backgroundColor: theme.primary,
                 boxShadow: `0 4px 12px ${theme.primary}40`,
@@ -351,7 +351,7 @@ export const AppLayout: React.FC = () => {
       <Layout className="w-full" style={{ backgroundColor: theme.bgLayout }}>
         {/* Top Header */}
         <Header
-          className="px-3 sm:px-6 h-16 flex items-center justify-between border-b shadow-sm sticky top-0 z-20 transition-colors duration-200"
+          className="px-3 sm:px-6 h-16 flex items-center justify-between border-b shadow-xs sticky top-0 z-20 transition-colors duration-200"
           style={{
             backgroundColor: theme.bgHeader,
             borderColor: theme.colorBorder,
@@ -389,7 +389,7 @@ export const AppLayout: React.FC = () => {
                 <span className="truncate min-w-0">
                   {activeProject ? activeProject.name : 'Selecionar Projeto...'}
                 </span>
-                <DownOutlined className="text-xs text-gray-400 ml-0.5 sm:ml-1 flex-shrink-0" />
+                <DownOutlined className="text-xs text-gray-400 ml-0.5 sm:ml-1 shrink-0" />
               </Button>
             </Dropdown>
 
@@ -429,7 +429,7 @@ export const AppLayout: React.FC = () => {
           </div>
 
           {/* Right section: Error Reporting Shortcut + Language Dropdown + Settings Shortcut + User Profile */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Tooltip title="Rota para informar erros e incidentes (/errors)">
               <Button
                 size="small"

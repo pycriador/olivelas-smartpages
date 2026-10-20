@@ -251,7 +251,7 @@ export const TokensManager: React.FC = () => {
             />
             <Paragraph
               copyable={{ text: newlyCreatedSecret }}
-              className="!mb-0 font-mono text-xs p-3 rounded-lg bg-[#0B131E] border border-[#223147] text-emerald-400 break-all"
+              className="mb-0! font-mono text-xs p-3 rounded-lg bg-[#0B131E] border border-[#223147] text-emerald-400 break-all"
             >
               {newlyCreatedSecret}
             </Paragraph>
