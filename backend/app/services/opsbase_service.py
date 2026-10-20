@@ -271,6 +271,8 @@ class OpsBaseIntegrationService:
 
         return origins
 
+    _token_cache: Dict[str, Tuple[str, datetime]] = {}
+
     @staticmethod
     def _authenticate_opsbase_client(
         opsbase_base_url: str,
@@ -286,6 +288,12 @@ class OpsBaseIntegrationService:
 
         if explicit_token:
             return explicit_token
+
+        cached = OpsBaseIntegrationService._token_cache.get(base)
+        if cached:
+            cached_tok, cached_at = cached
+            if (utc_now() - cached_at).total_seconds() < 300:
+                return cached_tok
 
         email_candidates = [
             settings.aiops_opsbase_user,
@@ -320,6 +328,7 @@ class OpsBaseIntegrationService:
                             data = resp.json()
                             token = data.get("access_token")
                             if token:
+                                OpsBaseIntegrationService._token_cache[base] = (token, utc_now())
                                 return token
                     except Exception as exc:
                         logger.debug(f"OpsBase auth attempt failed for {username}: {exc}")
@@ -365,10 +374,10 @@ class OpsBaseIntegrationService:
 
         try:
             with httpx.Client(timeout=8.0, trust_env=False) as client:
-                # 1. Try by explicit OpsBase project ID if known
-                if target_id:
+                # 1. If caller explicitly passed opsbase_project_id, try it first
+                if opsbase_project_id is not None:
                     resp = client.get(
-                        f"{base_url}/api/v1/projects/{target_id}/public-config",
+                        f"{base_url}/api/v1/projects/{opsbase_project_id}/public-config",
                         headers=headers,
                     )
                     last_status = resp.status_code
@@ -388,6 +397,16 @@ class OpsBaseIntegrationService:
                         if resp.status_code == 200:
                             discovery_data = resp.json()
                             break
+
+                # 3. Try stored project.opsbase_project_id if not tried yet
+                if not discovery_data and project.opsbase_project_id and project.opsbase_project_id != opsbase_project_id:
+                    resp = client.get(
+                        f"{base_url}/api/v1/projects/{project.opsbase_project_id}/public-config",
+                        headers=headers,
+                    )
+                    last_status = resp.status_code
+                    if resp.status_code == 200:
+                        discovery_data = resp.json()
 
                 # 3. If project doesn't exist yet in OpsBase and auto_provision_if_missing is True, create it in OpsBase
                 if not discovery_data and auto_provision_if_missing and token:

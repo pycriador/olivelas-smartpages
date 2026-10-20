@@ -194,28 +194,37 @@ curl -X POST "http://localhost:8005/api/v1/projects/1/deployments/quick-build" \
   }'
 ```
 
-### Exemplo 3: Configurar e Consumir Credenciais Públicas do Opsbase (`P-13`)
+### Exemplo 3: Vincular, Sincronizar e Consumir Credenciais Públicas do OpsBase (`P-13` & Parte 2)
 
 ```bash
-# 1. Configurar URL do Opsbase e chave pública anon para o ambiente de produção
+# 1. Vincular/Sincronizar o projeto com o endpoint de descoberta do OpsBase (sem chave digitada manualmente)
+curl -X POST "http://localhost:8005/api/v1/projects/1/opsbase/sync" \
+  -H "Authorization: Bearer <SEU_JWT>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "opsbase_project_slug": "portal_loft",
+    "sync_cors": true
+  }'
+
+# 2. Customizar variáveis públicas ou URL por ambiente (ex.: production)
 curl -X PUT "http://localhost:8005/api/v1/projects/1/public-config/production" \
   -H "Authorization: Bearer <SEU_JWT>" \
   -H "Content-Type: application/json" \
   -d '{
     "environment": "production",
-    "opsbase_url": "http://localhost:8000",
-    "opsbase_anon_key": "opsbase_pub_portal_loft_anon_key",
+    "opsbase_url": "http://localhost:8001/api/v1",
     "public_vars": {
       "FEATURE_REALTIME_NEWS": true,
       "DEFAULT_LOCALE": "pt-BR"
     },
-    "is_enabled": true
+    "inject_in_html": true,
+    "is_active": true
   }'
 
-# 2. A página estática publicada recebe automaticamente <script src="/pages/portal-loft/env-config.js"></script>
-# e pode ler em runtime:
-# window.__OPSPAGES_CONFIG__.opsbase_url
-# window.__OPSPAGES_CONFIG__.opsbase_anon_key
+# 3. A página estática publicada recebe em runtime (Cache-Control: no-cache, no-store, must-revalidate):
+# <script src="/pages/portal-loft/env-config.js?env=production"></script>
+# window.__OPSPAGES_CONFIG__.opsbase_url      -> "http://localhost:8001/api/v1"
+# window.__OPSPAGES_CONFIG__.opsbase_anon_key -> "opsbase_anon_..." (descoberta do OpsBase)
 ```
 
 ### Exemplo 4: Informar um Erro pela API (`POST /api/v1/errors/report`)

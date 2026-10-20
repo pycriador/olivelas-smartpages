@@ -240,7 +240,7 @@ def init_meta_db() -> None:
                 OpsBaseIntegrationService.link_or_sync_project(
                     db=db,
                     project=proj,
-                    opsbase_project_id=proj.opsbase_project_id,
+                    opsbase_project_id=None,
                     opsbase_project_slug=proj.opsbase_project_slug or proj.slug,
                     actor_email=default_email,
                     auto_provision_if_missing=True,

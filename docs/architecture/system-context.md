@@ -31,9 +31,9 @@ version: "1.1"
 
 ## 2. Sistemas Externos Integrados (`Confirmed`)
 
-### 2.1. AIOps OpsBase (`http://localhost:8000`)
+### 2.1. AIOps OpsBase (`http://localhost:8001` / `http://localhost:8001/api/v1`)
 - **Relação:** Backend BaaS corporativo da Loft que fornece banco de dados dinâmico, autenticação e RPC para as SPAs estáticas hospedadas no **AIOps OpsPages**.
-- **Mecanismo de Integração (`P-13`):** O OpsPages injeta automaticamente em cada página estática o script `/pages/{slug}/env-config.js`, expondo `window.__OPSPAGES_CONFIG__` e `window.__OPSBASE_CONFIG__` com `opsbase_url` e `opsbase_anon_key` específicos do projeto e do ambiente (`production`, `staging`, `development`, `preview`).
+- **Mecanismo de Integração (`P-13` & Parte 2):** Cada projeto do OpsPages é vinculado a um projeto do OpsBase via endpoint de descoberta (`/api/v1/projects/{id}/public-config` ou `/by-slug/{slug}/public-config`), sincronizando a chave pública `opsbase_anon_...`, URLs por ambiente (`production`, `staging`, `development`, `preview`) e a allowlist de CORS de origem exata (`POST /api/v1/projects/{id}/cors/pages-sync`). O OpsPages injeta em runtime (`Cache-Control: no-cache, no-store, must-revalidate`) o script `/pages/{slug}/env-config.js`, expondo `window.__OPSPAGES_CONFIG__` e `window.__OPSBASE_CONFIG__` sem nunca gravar chaves no bundle estático.
 
 ### 2.2. GitHub Remote Repositories
 - **Relação:** Sincronização bidirecional opcional (`git push --tags` / `git pull`) do repositório local `/repos/{slug}/git_repo` com um repositório GitHub remoto configurado em `project.github_repo_url`.
