@@ -1,0 +1,14 @@
+{
+  "name": "portal-loft-tech-news",
+  "version": "1.1.0",
+  "description": "Portal Loft v1.1.0 — Portal Multilíngue (PT-BR, EN, ES) de Notícias de Tecnologia, IA, Engenharia de Software e Cloud (Padrão Copan Design System)",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit",
+    "serve": "python3 -m http.server 8080 --directory dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}

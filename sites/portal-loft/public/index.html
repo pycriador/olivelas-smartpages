@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portal Loft v1.1.0 — Notícias de Tecnologia, IA, Engenharia de Software &amp; Cloud</title>
+  <meta
+    name="description"
+    content="Portal Loft v1.1.0: cobertura jornalística multilíngue (PT-BR, EN, ES) sobre Inteligência Artificial, Engenharia de Software, Cloud Computing, Cibersegurança e Hardware. Design System Copan."
+  />
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- Barra Superior Editorial / Índices Tech & Infraestrutura -->
+  <div class="portal-topbar">
+    <div class="portal-container topbar-inner">
+      <div class="topbar-left">
+        <span class="topbar-brand-badge">LOFT MEDIA NETWORK</span>
+        <span class="topbar-divider">|</span>
+        <span class="topbar-datetime" id="live-portal-datetime">Carregando horário...</span>
+        <span class="topbar-divider">|</span>
+        <span class="topbar-version-tag" id="topbar-version-tag">Release v1.1.0 • Multilíngue (PT/EN/ES)</span>
+      </div>
+      <div class="topbar-ticker-wrap" aria-label="Indicadores de tecnologia">
+        <span class="ticker-label" id="radar-tech-label">RADAR TECH:</span>
+        <div class="tech-ticker-track" id="tech-ticker-track"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cabeçalho Principal do Portal Loft (Inspirado em UOL Tilt / Terra Tecnologia + Copan Design System) -->
+  <header class="portal-header">
+    <div class="portal-container header-main-row">
+      <a href="#top" class="portal-logo-link" id="portal-logo-home" aria-label="Portal Loft - Página Inicial">
+        <div class="portal-logo-mark">L</div>
+        <div class="portal-logo-text">
+          <div class="portal-logo-title">PORTAL <span>LOFT</span></div>
+          <div class="portal-logo-subtitle" id="portal-logo-subtitle">Tecnologia • IA • Engenharia • Cloud</div>
+        </div>
+      </a>
+
+      <div class="portal-search-box">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input
+          type="search"
+          id="portal-search-input"
+          class="portal-search-input"
+          placeholder="Buscar notícias sobre IA, TypeScript, Kubernetes, Rust, Chips... (Pressione /)"
+          aria-label="Buscar reportagens no Portal Loft"
+        />
+      </div>
+
+      <div class="portal-header-actions">
+        <!-- Seletor de Idiomas v1.1.0 (PT-BR, EN, ES) -->
+        <div class="lang-switcher-group" role="group" aria-label="Seletor de idioma / Language selector">
+          <button type="button" class="lang-switch-btn active" data-lang="pt-BR" title="Português (Brasil)">
+            <span class="lang-flag">🇧🇷</span>
+            <span>PT-BR</span>
+          </button>
+          <button type="button" class="lang-switch-btn" data-lang="en" title="English">
+            <span class="lang-flag">🇺🇸</span>
+            <span>EN</span>
+          </button>
+          <button type="button" class="lang-switch-btn" data-lang="es" title="Español">
+            <span class="lang-flag">🇪🇸</span>
+            <span>ES</span>
+          </button>
+        </div>
+
+        <!-- Botão Lista de Leitura Salva (v1.1.0) -->
+        <button type="button" class="saved-filter-btn" id="saved-filter-btn" aria-pressed="false">
+          <span>🔖</span>
+          <span id="saved-filter-label">Salvos</span>
+          <span class="saved-count-pill" id="saved-count-pill">0</span>
+        </button>
+
+        <button type="button" class="theme-toggle-btn" id="theme-toggle-btn" aria-label="Alternar tema claro ou escuro">
+          <span class="theme-icon">🌙</span> <span>Modo Escuro</span>
+        </button>
+
+        <a href="#newsletter-anchor" class="header-cta-btn" id="header-briefing-cta">Briefing Diário</a>
+      </div>
+    </div>
+
+    <!-- Barra de Editorias -->
+    <div class="portal-nav-bar">
+      <div class="portal-container">
+        <nav class="editorial-category-nav" id="editorial-category-nav" aria-label="Editorias do Portal Loft"></nav>
+      </div>
+    </div>
+  </header>
+
+  <!-- Faixa de Plantão em Tempo Real -->
+  <section class="plantao-strip" aria-label="Plantão de notícias em tempo real">
+    <div class="portal-container plantao-strip-inner">
+      <div class="plantao-badge">
+        <span class="pulse-dot"></span>
+        <span id="plantao-badge-label">PLANTÃO TECH</span>
+      </div>
+      <div class="plantao-items-list" id="plantao-items-list"></div>
+    </div>
+  </section>
+
+  <!-- Barra de Tópicos em Alta / Filtro por Tags (Novo em v1.1.0) -->
+  <section class="trending-tags-bar" aria-label="Tópicos e tags em alta">
+    <div class="portal-container trending-tags-inner">
+      <span class="trending-tags-label" id="trending-topics-label">TÓPICOS EM ALTA:</span>
+      <div class="trending-tags-list" id="trending-tags-list"></div>
+    </div>
+  </section>
+
+  <!-- Conteúdo Principal -->
+  <main class="portal-main portal-container" id="top">
+    <!-- Seção Manchete Principal + Destaques Secundários (UOL / Terra Bento Grid) -->
+    <section class="hero-bento-section" id="hero-bento-section" aria-label="Destaques principais da capa"></section>
+
+    <!-- Layout Principal 2 Colunas: Feed de Reportagens + Sidebar Interativa -->
+    <div class="editorial-content-layout">
+      <!-- Coluna Esquerda: Feed Editorial Completo -->
+      <section class="editorial-feed-column" aria-labelledby="feed-section-title">
+        <div class="section-heading-bar">
+          <div class="section-heading-left">
+            <span class="section-accent-bar"></span>
+            <h2 id="feed-section-title">Últimas Notícias de Tecnologia, IA &amp; Desenvolvimento</h2>
+          </div>
+          <span class="feed-count-badge" id="feed-count-badge">7 reportagens</span>
+        </div>
+
+        <div class="editorial-news-grid" id="editorial-news-grid"></div>
+      </section>
+
+      <!-- Coluna Direita: Mais Lidas, Lista de Leitura, Enquete & Newsletter -->
+      <aside class="editorial-sidebar" aria-label="Mais lidas, plantão e interatividade">
+        <!-- Widget 1: Ranking Mais Lidas -->
+        <div class="sidebar-widget">
+          <div class="widget-header">
+            <span class="widget-kicker" id="most-read-kicker">RANKING DE AUDIÊNCIA</span>
+            <h3 id="most-read-title">Mais Lidas Agora</h3>
+          </div>
+          <ol class="most-read-list" id="most-read-list"></ol>
+        </div>
+
+        <!-- Widget 2 (Novo v1.1.0): Sua Biblioteca / Lista de Leitura Salva -->
+        <div class="sidebar-widget">
+          <div class="widget-header">
+            <span class="widget-kicker" id="saved-widget-kicker">BIBLIOTECA PESSOAL</span>
+            <h3 id="saved-widget-title">Matérias Salvas</h3>
+          </div>
+          <div class="saved-reading-list" id="saved-reading-list"></div>
+        </div>
+
+        <!-- Widget 3: Enquete Tech Interativa -->
+        <div class="sidebar-widget widget-poll">
+          <div class="widget-header">
+            <span class="widget-kicker" id="poll-widget-kicker">TERMÔMETRO DE ENGENHARIA</span>
+            <h3 id="poll-widget-title">Enquete da Semana</h3>
+          </div>
+          <div id="interactive-poll-body"></div>
+        </div>
+
+        <!-- Widget 4: Linha do Tempo Plantão Tech -->
+        <div class="sidebar-widget">
+          <div class="widget-header">
+            <span class="widget-kicker" id="radar-widget-kicker">MINUTO A MINUTO</span>
+            <h3 id="radar-widget-title">Radar da Redação</h3>
+          </div>
+          <div class="sidebar-plantao-timeline" id="sidebar-plantao-timeline"></div>
+        </div>
+
+        <!-- Widget 5: Newsletter Briefing Diário -->
+        <div class="sidebar-widget widget-newsletter" id="newsletter-anchor">
+          <div class="widget-kicker" id="newsletter-kicker">NEWSLETTER OFICIAL</div>
+          <h3 id="newsletter-title">Briefing Tech Loft</h3>
+          <p id="newsletter-desc">
+            Receba todas as manhãs a curadoria técnica sobre IA Generativa, Arquitetura Cloud, TypeScript e Segurança direto no seu e-mail.
+          </p>
+          <form class="newsletter-form" id="portal-newsletter-form">
+            <input
+              type="email"
+              id="newsletter-email-input"
+              placeholder="seu.nome@empresa.com.br"
+              required
+              aria-label="Seu endereço de e-mail corporativo"
+            />
+            <button type="submit" id="newsletter-submit-btn">Assinar Gratuitamente</button>
+          </form>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Modal Nativo (<dialog>) para Leitura Completa das Reportagens -->
+  <dialog class="article-reader-dialog" id="article-reader-dialog" aria-label="Leitura completa da reportagem">
+    <div class="dialog-reading-progress-wrap" aria-hidden="true">
+      <div class="dialog-reading-progress-bar" id="dialog-reading-progress-bar"></div>
+    </div>
+    <div class="dialog-sticky-topbar">
+      <div class="dialog-brand-mini">
+        <span class="mini-logo-badge">L</span>
+        <span id="dialog-topbar-title">PORTAL LOFT • REPORTAGEM COMPLETA</span>
+      </div>
+      <button type="button" class="close-dialog-btn" id="close-article-dialog-btn" aria-label="Fechar leitura">
+        ✕ Fechar (ESC)
+      </button>
+    </div>
+    <div class="article-dialog-body" id="article-dialog-body"></div>
+  </dialog>
+
+  <!-- Rodapé Editorial Completo -->
+  <footer class="portal-footer">
+    <div class="portal-container">
+      <div class="footer-grid">
+        <div class="footer-brand-col">
+          <div class="portal-logo-link footer-logo">
+            <div class="portal-logo-mark">L</div>
+            <div class="portal-logo-text">
+              <div class="portal-logo-title">PORTAL <span>LOFT</span></div>
+              <div class="portal-logo-subtitle" id="footer-logo-subtitle">Jornalismo Técnico &amp; Engenharia Digital</div>
+            </div>
+          </div>
+          <p class="footer-about-text" id="footer-about-text">
+            O Portal Loft é a publicação editorial de tecnologia construída com o Design System Copan e publicada via AIOps OpsPages. Cobertura independente em Português, Inglês e Espanhol sobre IA, Engenharia de Software, Cloud Computing, Segurança e Semicondutores.
+          </p>
+          <div class="footer-tech-badges">
+            <span>TypeScript 5.x</span>
+            <span>PT-BR • EN • ES</span>
+            <span>Copan Design System</span>
+            <span>Build v1.1.0</span>
+          </div>
+        </div>
+
+        <div class="footer-links-col">
+          <h4 id="footer-categories-title">Editorias</h4>
+          <ul id="footer-categories-list">
+            <li><button type="button" class="footer-cat-link" data-footer-cat="ia">IA &amp; Agentes</button></li>
+            <li><button type="button" class="footer-cat-link" data-footer-cat="engenharia">Engenharia &amp; Dev</button></li>
+            <li><button type="button" class="footer-cat-link" data-footer-cat="cloud">Cloud &amp; DevOps</button></li>
+            <li><button type="button" class="footer-cat-link" data-footer-cat="seguranca">Cibersegurança</button></li>
+            <li><button type="button" class="footer-cat-link" data-footer-cat="hardware">Chips &amp; Hardware</button></li>
+            <li><button type="button" class="footer-cat-link" data-footer-cat="web">Frontend &amp; Web</button></li>
+          </ul>
+        </div>
+
+        <div class="footer-links-col">
+          <h4 id="footer-architecture-title">Expediente &amp; Arquitetura</h4>
+          <ul>
+            <li><span id="footer-location">Redação: São Paulo, SP • Brasil</span></li>
+            <li><span>Design System: Loft Copan v3</span></li>
+            <li><span id="footer-hosting">Hospedagem Estática: AIOps OpsPages</span></li>
+            <li><span id="footer-version">Versão Publicada: Release 1.1.0</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="footer-bottom-bar">
+        <span id="footer-copyright">© 2026 Portal Loft • Todos os direitos reservados. Conteúdo jornalístico de tecnologia e engenharia.</span>
+        <span id="footer-static-compat">Compatível com execução 100% estática local (HTML/CSS/JS/IMG).</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast de Feedback -->
+  <div class="portal-toast" id="portal-toast" role="status" aria-live="polite"></div>
+
+  <script src="js/app.js" defer></script>
+</body>
+</html>

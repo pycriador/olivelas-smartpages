@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Node / Frontend
+node_modules
+node_modules/
+**/node_modules
+frontend/dist/
+frontend/.vite/
+*.tsbuildinfo
+
+# Runtime & Logs
+logs/
+.pids/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dynamic Project Builds (keep /repos/.gitkeep)
+repos/*
+!repos/.gitkeep
