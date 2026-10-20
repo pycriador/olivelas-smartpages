@@ -43,6 +43,7 @@ from app.services.auth_service import invalidate_auth_cache
 from app.services.deployment_service import DeploymentService
 from app.services.git_storage_service import GitStorageService
 from app.services.hbac_service import HBACService
+from app.services.opsbase_service import OpsBaseIntegrationService, VALID_PUBLIC_CONFIG_ENVIRONMENTS
 
 logger = logging.getLogger("aiops.opspages.project")
 
@@ -264,47 +265,20 @@ class ProjectService:
         )
         db.add(quota)
 
-        # Provision default CORS rule (wildcard '*' with allow_credentials=False)
-        cors = CorsRule(
-            project_id=project.id,
-            origin="*",
-            allowed_methods="GET,HEAD,OPTIONS",
-            allowed_headers="*",
-            allow_credentials=False,
-            max_age_seconds=3600,
-            cache_control="public, max-age=3600",
-            is_active=True,
-        )
-        db.add(cors)
-
-        # Provision default Public Runtime Configs per environment (P-13)
-        for env_name, env_prefix in (
-            ("production", "live"),
-            ("staging", "stg"),
-            ("development", "dev"),
-        ):
-            pub_key = f"opsb_pub_{env_prefix}_{slug.replace('-', '_')}_{secrets.token_hex(6)}"
-            pub_cfg = ProjectPublicConfig(
-                project_id=project.id,
-                environment=env_name,
-                opsbase_url="http://localhost:8000",
-                opsbase_public_key=pub_key,
-                opsbase_project_slug=slug,
-                scopes="public:read,data:query,auth:session,crud:items",
-                inject_in_html=True,
-                is_active=True,
-                updated_by_email=actor.email,
+        # Provision exact-origin CORS rules (Part 2 & P-9)
+        for exact_origin in OpsBaseIntegrationService.compute_project_exact_origins(project):
+            db.add(
+                CorsRule(
+                    project_id=project.id,
+                    origin=exact_origin,
+                    allowed_methods="GET,HEAD,OPTIONS",
+                    allowed_headers="Authorization,Content-Type,Accept,Origin,X-Requested-With,X-API-Key,apikey",
+                    allow_credentials=True,
+                    max_age_seconds=3600,
+                    cache_control=project.asset_cache_control or "public, max-age=3600",
+                    is_active=True,
+                )
             )
-            pub_cfg.set_public_vars(
-                {
-                    "OPSBASE_URL": "http://localhost:8000",
-                    "OPSBASE_PUBLIC_KEY": pub_key,
-                    "OPSBASE_PROJECT": slug,
-                    "OPSPAGES_BASE_URL": f"/pages/{slug}",
-                    "ENVIRONMENT": env_name,
-                }
-            )
-            db.add(pub_cfg)
 
         # Grant explicit admin permission to creator
         perm = ProjectPermission(
@@ -347,6 +321,39 @@ class ProjectService:
 
         db.commit()
         db.refresh(project)
+
+        # Link project & discover public anon key + URL + align CORS in OpsBase (Part 2)
+        try:
+            OpsBaseIntegrationService.link_or_sync_project(
+                db=db,
+                project=project,
+                opsbase_project_id=req.opsbase_project_id,
+                opsbase_project_slug=req.opsbase_project_slug or project.slug,
+                actor_id=actor.id,
+                actor_email=actor.email,
+                auto_provision_if_missing=True,
+                sync_cors=True,
+            )
+        except Exception as link_exc:
+            logger.warning(f"Initial OpsBase discovery sync failed for {project.slug}: {link_exc}")
+            for env_name in VALID_PUBLIC_CONFIG_ENVIRONMENTS:
+                pub_cfg = ProjectPublicConfig(
+                    project_id=project.id,
+                    environment=env_name,
+                    opsbase_url=settings.OPSBASE_DEFAULT_API_URL,
+                    opsbase_public_key="",
+                    opsbase_project_slug=slug,
+                    opsbase_key_status="unlinked",
+                    key_source="opsbase_discovery",
+                    scopes="public:read,data:query,auth:session,crud:items",
+                    inject_in_html=True,
+                    is_active=True,
+                    updated_by_email=actor.email,
+                )
+                pub_cfg.set_public_vars({})
+                db.add(pub_cfg)
+            db.commit()
+            db.refresh(project)
 
         # Initialize /repos/{slug} Git repository
         GitStorageService.ensure_initialized(project)
@@ -435,6 +442,26 @@ class ProjectService:
 
         db.commit()
         db.refresh(project)
+
+        # If OpsBase link target or custom_domain changed, align with OpsBase in a single step
+        if req.opsbase_project_id is not None or req.opsbase_project_slug is not None:
+            OpsBaseIntegrationService.link_or_sync_project(
+                db=db,
+                project=project,
+                opsbase_project_id=req.opsbase_project_id,
+                opsbase_project_slug=req.opsbase_project_slug,
+                actor_id=actor.id,
+                actor_email=actor.email,
+                auto_provision_if_missing=True,
+                sync_cors=True,
+            )
+        elif "custom_domain" in diff:
+            OpsBaseIntegrationService.sync_project_cors_with_opsbase(
+                db=db,
+                project=project,
+            )
+            db.commit()
+            db.refresh(project)
 
         if project.github_repo_url:
             GitStorageService.configure_remote(project)
@@ -761,7 +788,11 @@ jobs:
 
     @classmethod
     def ensure_default_public_configs(cls, db: Session, project: Project) -> List[ProjectPublicConfig]:
-        """Ensures production, staging, and development public runtime configs exist for `project` (P-13)."""
+        """
+        Ensures production, staging, development, and preview public runtime configs exist
+        for `project` and are linked to OpsBase Discovery (`http://localhost:8001/api/v1`).
+        Never generates placeholder or fake `opsb_pub_...` keys.
+        """
         existing = (
             db.query(ProjectPublicConfig)
             .filter(ProjectPublicConfig.project_id == project.id)
@@ -769,38 +800,69 @@ jobs:
             .all()
         )
         by_env = {c.environment: c for c in existing}
-        created_any = False
 
-        for env_name, env_prefix in (
-            ("production", "live"),
-            ("staging", "stg"),
-            ("development", "dev"),
-        ):
-            if env_name not in by_env:
-                pub_key = f"opsb_pub_{env_prefix}_{project.slug.replace('-', '_')}_v1"
+        needs_opsbase_sync = (
+            not project.opsbase_project_id
+            or any(env_name not in by_env for env_name in VALID_PUBLIC_CONFIG_ENVIRONMENTS)
+            or any(
+                c.opsbase_url.startswith("http://localhost:8000")
+                or OpsBaseIntegrationService.is_placeholder_or_forbidden_key(c.opsbase_public_key)[0]
+                for c in existing
+            )
+        )
+
+        if needs_opsbase_sync:
+            try:
+                OpsBaseIntegrationService.link_or_sync_project(
+                    db=db,
+                    project=project,
+                    opsbase_project_id=project.opsbase_project_id,
+                    opsbase_project_slug=project.opsbase_project_slug or project.slug,
+                    auto_provision_if_missing=True,
+                    sync_cors=not project.opsbase_cors_synced,
+                )
+                existing = (
+                    db.query(ProjectPublicConfig)
+                    .filter(ProjectPublicConfig.project_id == project.id)
+                    .order_by(ProjectPublicConfig.id.asc())
+                    .all()
+                )
+                by_env = {c.environment: c for c in existing}
+            except Exception as exc:
+                logger.warning(f"Auto-sync with OpsBase failed for '{project.slug}': {exc}")
+
+        created_or_cleaned = False
+        for env_name in VALID_PUBLIC_CONFIG_ENVIRONMENTS:
+            cfg = by_env.get(env_name)
+            if not cfg:
                 cfg = ProjectPublicConfig(
                     project_id=project.id,
                     environment=env_name,
-                    opsbase_url="http://localhost:8000",
-                    opsbase_public_key=pub_key,
-                    opsbase_project_slug=project.slug,
+                    opsbase_url=settings.get_default_opsbase_url_for_env(env_name),
+                    opsbase_public_key="",
+                    opsbase_project_id=project.opsbase_project_id,
+                    opsbase_project_slug=project.opsbase_project_slug or project.slug,
+                    opsbase_schema_name=project.opsbase_schema_name,
+                    opsbase_key_status="unlinked",
+                    key_source="opsbase_discovery",
                     scopes="public:read,data:query,auth:session,crud:items",
                     inject_in_html=True,
                     is_active=True,
                 )
-                cfg.set_public_vars(
-                    {
-                        "OPSBASE_URL": "http://localhost:8000",
-                        "OPSBASE_PUBLIC_KEY": pub_key,
-                        "OPSBASE_PROJECT": project.slug,
-                        "OPSPAGES_BASE_URL": f"/pages/{project.slug}",
-                        "ENVIRONMENT": env_name,
-                    }
-                )
+                cfg.set_public_vars({})
                 db.add(cfg)
-                created_any = True
+                created_or_cleaned = True
+            else:
+                if cfg.opsbase_url.startswith("http://localhost:8000"):
+                    cfg.opsbase_url = settings.get_default_opsbase_url_for_env(env_name)
+                    created_or_cleaned = True
+                is_bad, _ = OpsBaseIntegrationService.is_placeholder_or_forbidden_key(cfg.opsbase_public_key)
+                if is_bad:
+                    cfg.opsbase_public_key = ""
+                    cfg.opsbase_key_status = "unlinked"
+                    created_or_cleaned = True
 
-        if created_any:
+        if created_or_cleaned:
             db.commit()
             existing = (
                 db.query(ProjectPublicConfig)
@@ -813,22 +875,58 @@ jobs:
     @classmethod
     def serialize_public_config(cls, project: Project, cfg: ProjectPublicConfig) -> ProjectPublicConfigResponse:
         scopes_list = [s.strip() for s in (cfg.scopes or "").split(",") if s.strip()]
-        pub_vars = cfg.get_public_vars()
+        custom_vars = OpsBaseIntegrationService.validate_and_sanitize_public_vars(
+            cfg.get_public_vars(), strict_raise=False
+        )
+        active_key = cfg.opsbase_public_key if cfg.opsbase_key_status == "active" else ""
+        if OpsBaseIntegrationService.is_placeholder_or_forbidden_key(active_key)[0]:
+            active_key = ""
+
+        opsbase_proj_id = cfg.opsbase_project_id or project.opsbase_project_id
+        opsbase_slug = cfg.opsbase_project_slug or project.opsbase_project_slug or project.slug
+        data_plane_url = cfg.opsbase_data_plane_url or (
+            f"{cfg.opsbase_url.rstrip('/')}/projects/{opsbase_proj_id}" if opsbase_proj_id else None
+        )
+        auth_url = cfg.opsbase_auth_url or (f"{data_plane_url}/auth" if data_plane_url else None)
+
+        merged_pub_vars = {
+            **custom_vars,
+            "OPSBASE_URL": cfg.opsbase_url,
+            "OPSBASE_API_URL": cfg.opsbase_url,
+            "OPSBASE_DATA_PLANE_URL": data_plane_url or "",
+            "OPSBASE_AUTH_URL": auth_url or "",
+            "OPSBASE_PUBLIC_KEY": active_key,
+            "OPSBASE_ANON_KEY": active_key,
+            "OPSBASE_PROJECT": opsbase_slug,
+            "OPSBASE_PROJECT_ID": opsbase_proj_id,
+            "OPSBASE_KEY_STATUS": cfg.opsbase_key_status,
+            "OPSPAGES_BASE_URL": f"/pages/{project.slug}",
+            "ENVIRONMENT": cfg.environment,
+        }
+
         js_url = f"/pages/{project.slug}/env-config.js?env={cfg.environment}"
         json_url = f"/pages/{project.slug}/env-config.json?env={cfg.environment}"
         api_url = f"/api/v1/public/projects/{project.slug}/config?env={cfg.environment}"
-        snippet = f'<script src="/pages/{project.slug}/env-config.js"></script>'
+        snippet = f'<script src="/pages/{project.slug}/env-config.js?env={cfg.environment}"></script>'
         return ProjectPublicConfigResponse(
             id=cfg.id,
             project_id=project.id,
             project_slug=project.slug,
             environment=cfg.environment,
             opsbase_url=cfg.opsbase_url,
-            opsbase_public_key=cfg.opsbase_public_key,
-            opsbase_project_slug=cfg.opsbase_project_slug or project.slug,
+            opsbase_public_key=active_key,
+            opsbase_project_id=opsbase_proj_id,
+            opsbase_project_slug=opsbase_slug,
+            opsbase_schema_name=cfg.opsbase_schema_name or project.opsbase_schema_name,
+            opsbase_key_prefix=cfg.opsbase_key_prefix or project.opsbase_key_prefix,
+            opsbase_key_status=cfg.opsbase_key_status,
+            opsbase_data_plane_url=data_plane_url,
+            opsbase_auth_url=auth_url,
+            key_source=cfg.key_source or "opsbase_discovery",
+            last_synced_at=cfg.last_synced_at or project.opsbase_last_synced_at,
             scopes=scopes_list,
             scopes_raw=cfg.scopes,
-            public_vars=pub_vars,
+            public_vars=merged_pub_vars,
             inject_in_html=cfg.inject_in_html,
             is_active=cfg.is_active,
             env_config_js_url=js_url,
@@ -850,14 +948,26 @@ jobs:
         cls,
         db: Session,
         project: Project,
-        environment: str = "production",
+        environment: Optional[str] = "production",
     ) -> ProjectPublicConfig:
+        """
+        Retrieves the public configuration for a specific environment (`production`, `staging`,
+        `development`, `preview`).
+        Strictly raises `ValidationError` (400) for invalid environment names and `NotFoundError` (404)
+        if the environment config does not exist or is inactive—never falling back to `production`.
+        """
+        target_env = OpsBaseIntegrationService.validate_environment_name(environment, allow_none=True)
         configs = cls.ensure_default_public_configs(db, project)
-        target_env = (environment or "production").strip().lower()
         for c in configs:
             if c.environment == target_env:
+                if not c.is_active:
+                    raise NotFoundError(
+                        f"A configuração pública do ambiente '{target_env}' está desativada para o projeto '{project.slug}'."
+                    )
                 return c
-        return configs[0]
+        raise NotFoundError(
+            f"Configuração pública para o ambiente '{target_env}' não encontrada no projeto '{project.slug}'."
+        )
 
     @classmethod
     def upsert_public_config(
@@ -867,7 +977,43 @@ jobs:
         req: ProjectPublicConfigUpsertRequest,
         actor: User,
     ) -> ProjectPublicConfigResponse:
-        target_env = (req.environment or "production").strip().lower()
+        """
+        Updates per-environment public runtime configuration (`opsbase_url`, `scopes`, `public_vars`,
+        `inject_in_html`, `is_active`).
+        Strictly rejects manually typed or placeholder `opsbase_public_key` values and any forbidden
+        secrets (`service_role_key`, passwords, database URIs).
+        """
+        target_env = OpsBaseIntegrationService.validate_environment_name(req.environment, allow_none=False)
+
+        # Reject manually typed or placeholder public keys
+        if req.opsbase_public_key is not None and req.opsbase_public_key.strip() != "":
+            raise ValidationError(
+                "O OpsPages não aceita 'opsbase_public_key' digitada manualmente nem valores placeholder. "
+                "A chave pública (opsbase_anon_...) deve ser obtida exclusivamente pelo endpoint de descoberta "
+                "do OpsBase (POST /api/v1/projects/{id}/opsbase/link ou /opsbase/sync)."
+            )
+
+        validated_url = OpsBaseIntegrationService.validate_opsbase_url(req.opsbase_url)
+        sanitized_vars = OpsBaseIntegrationService.validate_and_sanitize_public_vars(
+            req.public_vars, strict_raise=True
+        )
+
+        # Ensure defaults and OpsBase discovery link exist
+        cls.ensure_default_public_configs(db, project)
+
+        if req.rotate_public_key or req.opsbase_project_id is not None or req.opsbase_project_slug is not None:
+            OpsBaseIntegrationService.link_or_sync_project(
+                db=db,
+                project=project,
+                opsbase_project_id=req.opsbase_project_id or project.opsbase_project_id,
+                opsbase_project_slug=req.opsbase_project_slug or project.opsbase_project_slug or project.slug,
+                environment_urls={target_env: validated_url},
+                actor_id=actor.id,
+                actor_email=actor.email,
+                auto_provision_if_missing=True,
+                sync_cors=True,
+            )
+
         cfg = (
             db.query(ProjectPublicConfig)
             .filter(
@@ -876,57 +1022,52 @@ jobs:
             )
             .first()
         )
-        env_prefix_map = {"production": "live", "staging": "stg", "development": "dev", "preview": "prv"}
-        env_prefix = env_prefix_map.get(target_env, "pub")
+
+        opsbase_proj_id = project.opsbase_project_id
+        data_plane_url = f"{validated_url.rstrip('/')}/projects/{opsbase_proj_id}" if opsbase_proj_id else None
+        auth_url = f"{data_plane_url}/auth" if data_plane_url else None
 
         if not cfg:
-            pub_key = (req.opsbase_public_key or "").strip() or (
-                f"opsb_pub_{env_prefix}_{project.slug.replace('-', '_')}_{secrets.token_hex(6)}"
+            # Copy discovered key from production config if available
+            prod_cfg = (
+                db.query(ProjectPublicConfig)
+                .filter(
+                    ProjectPublicConfig.project_id == project.id,
+                    ProjectPublicConfig.environment == "production",
+                )
+                .first()
             )
+            discovered_key = prod_cfg.opsbase_public_key if prod_cfg else ""
             cfg = ProjectPublicConfig(
                 project_id=project.id,
                 environment=target_env,
-                opsbase_url=req.opsbase_url.strip(),
-                opsbase_public_key=pub_key,
-                opsbase_project_slug=(req.opsbase_project_slug or project.slug).strip(),
+                opsbase_url=validated_url,
+                opsbase_public_key=discovered_key,
+                opsbase_project_id=opsbase_proj_id,
+                opsbase_project_slug=project.opsbase_project_slug or project.slug,
+                opsbase_schema_name=project.opsbase_schema_name,
+                opsbase_key_prefix=project.opsbase_key_prefix,
+                opsbase_key_status=project.opsbase_key_status or "active",
+                opsbase_data_plane_url=data_plane_url,
+                opsbase_auth_url=auth_url,
+                key_source="opsbase_discovery",
+                last_synced_at=project.opsbase_last_synced_at,
                 scopes=req.scopes.strip(),
                 inject_in_html=req.inject_in_html,
                 is_active=req.is_active,
                 updated_by_email=actor.email,
             )
-            merged_vars = {
-                "OPSBASE_URL": cfg.opsbase_url,
-                "OPSBASE_PUBLIC_KEY": cfg.opsbase_public_key,
-                "OPSBASE_PROJECT": cfg.opsbase_project_slug,
-                "OPSPAGES_BASE_URL": f"/pages/{project.slug}",
-                "ENVIRONMENT": target_env,
-                **(req.public_vars or {}),
-            }
-            cfg.set_public_vars(merged_vars)
+            cfg.set_public_vars(sanitized_vars)
             db.add(cfg)
         else:
-            cfg.opsbase_url = req.opsbase_url.strip()
-            if req.rotate_public_key:
-                cfg.opsbase_public_key = f"opsb_pub_{env_prefix}_{project.slug.replace('-', '_')}_{secrets.token_hex(6)}"
-            elif req.opsbase_public_key is not None and req.opsbase_public_key.strip():
-                cfg.opsbase_public_key = req.opsbase_public_key.strip()
-            if req.opsbase_project_slug is not None:
-                cfg.opsbase_project_slug = req.opsbase_project_slug.strip() or project.slug
+            cfg.opsbase_url = validated_url
+            cfg.opsbase_data_plane_url = data_plane_url
+            cfg.opsbase_auth_url = auth_url
             cfg.scopes = req.scopes.strip()
             cfg.inject_in_html = req.inject_in_html
             cfg.is_active = req.is_active
             cfg.updated_by_email = actor.email
-
-            merged_vars = {
-                **cfg.get_public_vars(),
-                "OPSBASE_URL": cfg.opsbase_url,
-                "OPSBASE_PUBLIC_KEY": cfg.opsbase_public_key,
-                "OPSBASE_PROJECT": cfg.opsbase_project_slug,
-                "OPSPAGES_BASE_URL": f"/pages/{project.slug}",
-                "ENVIRONMENT": target_env,
-                **(req.public_vars or {}),
-            }
-            cfg.set_public_vars(merged_vars)
+            cfg.set_public_vars(sanitized_vars)
 
         db.commit()
         db.refresh(cfg)
@@ -942,9 +1083,12 @@ jobs:
             diff={
                 "environment": cfg.environment,
                 "opsbase_url": cfg.opsbase_url,
+                "opsbase_project_id": cfg.opsbase_project_id,
+                "key_prefix": cfg.opsbase_key_prefix,
+                "key_status": cfg.opsbase_key_status,
                 "scopes": cfg.scopes,
                 "inject_in_html": cfg.inject_in_html,
-                "rotated_key": req.rotate_public_key,
+                "synced_from_opsbase": req.rotate_public_key,
             },
         )
         return cls.serialize_public_config(project, cfg)
@@ -954,13 +1098,43 @@ jobs:
         cls,
         db: Session,
         project: Project,
-        environment: str = "production",
+        environment: Optional[str] = "production",
         version_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         cfg = cls.get_public_config_by_env(db, project, environment)
         scopes_list = [s.strip() for s in (cfg.scopes or "").split(",") if s.strip()]
-        pub_vars = cfg.get_public_vars()
+        custom_vars = OpsBaseIntegrationService.validate_and_sanitize_public_vars(
+            cfg.get_public_vars(), strict_raise=False
+        )
         active_ver = version_override or project.active_version or "1.0.0"
+
+        active_key = cfg.opsbase_public_key if cfg.opsbase_key_status == "active" else ""
+        if OpsBaseIntegrationService.is_placeholder_or_forbidden_key(active_key)[0]:
+            active_key = ""
+
+        opsbase_proj_id = cfg.opsbase_project_id or project.opsbase_project_id
+        opsbase_slug = cfg.opsbase_project_slug or project.opsbase_project_slug or project.slug
+        opsbase_schema = cfg.opsbase_schema_name or project.opsbase_schema_name
+        data_plane_url = cfg.opsbase_data_plane_url or (
+            f"{cfg.opsbase_url.rstrip('/')}/projects/{opsbase_proj_id}" if opsbase_proj_id else None
+        )
+        auth_url = cfg.opsbase_auth_url or (f"{data_plane_url}/auth" if data_plane_url else None)
+
+        env_vars = {
+            **custom_vars,
+            "OPSBASE_URL": cfg.opsbase_url,
+            "OPSBASE_API_URL": cfg.opsbase_url,
+            "OPSBASE_DATA_PLANE_URL": data_plane_url or "",
+            "OPSBASE_AUTH_URL": auth_url or "",
+            "OPSBASE_PUBLIC_KEY": active_key,
+            "OPSBASE_ANON_KEY": active_key,
+            "OPSBASE_PROJECT": opsbase_slug,
+            "OPSBASE_PROJECT_ID": opsbase_proj_id,
+            "OPSBASE_KEY_STATUS": cfg.opsbase_key_status,
+            "OPSPAGES_BASE_URL": f"/pages/{project.slug}",
+            "ENVIRONMENT": cfg.environment,
+        }
+
         return {
             "project_slug": project.slug,
             "project_name": project.name,
@@ -968,14 +1142,34 @@ jobs:
             "version": active_ver,
             "opsbase": {
                 "url": cfg.opsbase_url,
-                "public_key": cfg.opsbase_public_key,
-                "project_slug": cfg.opsbase_project_slug or project.slug,
+                "api_base_url": cfg.opsbase_url,
+                "data_plane_url": data_plane_url,
+                "auth_url": auth_url,
+                "public_key": active_key,
+                "publicKey": active_key,
+                "anon_key": active_key,
+                "anonKey": active_key,
+                "key_prefix": cfg.opsbase_key_prefix if active_key else None,
+                "key_type": "anon",
+                "key_status": cfg.opsbase_key_status,
+                "key_source": "opsbase_discovery",
+                "keySource": "opsbase_discovery",
+                "project_id": opsbase_proj_id,
+                "project_slug": opsbase_slug,
+                "schema_name": opsbase_schema,
+                "rls_enforced": True,
                 "scopes": scopes_list,
             },
             "opsbase_url": cfg.opsbase_url,
-            "opsbase_public_key": cfg.opsbase_public_key,
+            "opsbase_public_key": active_key,
+            "opsbase_anon_key": active_key,
+            "public_key": active_key,
+            "anon_key": active_key,
+            "opsbase_project_id": opsbase_proj_id,
+            "opsbase_project_slug": opsbase_slug,
+            "opsbase_key_status": cfg.opsbase_key_status,
             "scopes": scopes_list,
-            "env": pub_vars,
+            "env": env_vars,
             "inject_in_html": cfg.inject_in_html,
             "is_active": cfg.is_active,
         }
@@ -985,18 +1179,19 @@ jobs:
         cls,
         db: Session,
         project: Project,
-        environment: str = "production",
+        environment: Optional[str] = "production",
         version_override: Optional[str] = None,
     ) -> str:
         payload = cls.build_runtime_config_payload(db, project, environment, version_override=version_override)
         json_str = json.dumps(payload, ensure_ascii=False)
         return (
-            "/* AIOps OpsPages Public Runtime Configuration (P-13) */\n"
+            "/* AIOps OpsPages Public Runtime Configuration (P-13 & Part 2 OpsBase Discovery) */\n"
             "(function(w){\n"
             f"  var cfg = {json_str};\n"
             "  w.__OPSPAGES_CONFIG__ = cfg;\n"
             "  w.__OPSBASE_CONFIG__ = cfg.opsbase;\n"
             "  w.OPSBASE_URL = cfg.opsbase_url;\n"
             "  w.OPSBASE_PUBLIC_KEY = cfg.opsbase_public_key;\n"
+            "  w.OPSBASE_ANON_KEY = cfg.opsbase_anon_key;\n"
             "})(typeof window !== 'undefined' ? window : globalThis);\n"
         )

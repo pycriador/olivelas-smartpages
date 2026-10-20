@@ -150,6 +150,17 @@ class Project(Base):
     github_token_encrypted: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     auto_sync_github: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    # AIOps OpsBase Integration & Project Linking (Part 2)
+    opsbase_project_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True, index=True)
+    opsbase_project_slug: Mapped[Optional[str]] = mapped_column(String(150), nullable=True, index=True)
+    opsbase_schema_name: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    opsbase_linked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    opsbase_last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    opsbase_key_status: Mapped[str] = mapped_column(String(40), default="active", nullable=False)
+    opsbase_key_prefix: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    opsbase_cors_synced: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    opsbase_allowed_origins_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("opspages_users.id", ondelete="SET NULL"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
@@ -202,6 +213,18 @@ class Project(Base):
     def live_url(self) -> str:
         """Public path where active static build is served."""
         return f"/pages/{self.slug}/"
+
+    def get_opsbase_allowed_origins(self) -> List[str]:
+        if not self.opsbase_allowed_origins_json:
+            return []
+        try:
+            parsed = json.loads(self.opsbase_allowed_origins_json)
+            return [str(x) for x in parsed] if isinstance(parsed, list) else []
+        except Exception:
+            return []
+
+    def set_opsbase_allowed_origins(self, origins: List[str]) -> None:
+        self.opsbase_allowed_origins_json = json.dumps(origins or [], ensure_ascii=False)
 
 
 class Deployment(Base):
@@ -325,9 +348,17 @@ class ProjectPublicConfig(Base):
     )
     # Environments: production | staging | development | preview
     environment: Mapped[str] = mapped_column(String(50), default="production", nullable=False, index=True)
-    opsbase_url: Mapped[str] = mapped_column(String(500), default="http://localhost:8000", nullable=False)
+    opsbase_url: Mapped[str] = mapped_column(String(500), default="http://localhost:8001/api/v1", nullable=False)
     opsbase_public_key: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    opsbase_project_id: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     opsbase_project_slug: Mapped[str] = mapped_column(String(150), default="", nullable=False)
+    opsbase_schema_name: Mapped[Optional[str]] = mapped_column(String(150), nullable=True)
+    opsbase_key_prefix: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    opsbase_key_status: Mapped[str] = mapped_column(String(40), default="active", nullable=False)
+    opsbase_data_plane_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    opsbase_auth_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    key_source: Mapped[str] = mapped_column(String(50), default="opsbase_discovery", nullable=False)
+    last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     scopes: Mapped[str] = mapped_column(String(500), default="public:read,data:query,auth:session", nullable=False)
     public_vars_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
     inject_in_html: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

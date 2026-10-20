@@ -116,11 +116,12 @@ class ValidationError(ApplicationError):
         message: str = "Invalid input or validation failed",
         field: Optional[str] = None,
         details: Optional[Dict[str, Any]] = None,
+        status_code: int = status.HTTP_400_BAD_REQUEST,
     ):
         super().__init__(
             message=message,
             code="VALIDATION_ERROR",
-            status_code=getattr(status, "HTTP_422_UNPROCESSABLE_CONTENT", 422),
+            status_code=status_code,
             field=field,
             details=details,
         )

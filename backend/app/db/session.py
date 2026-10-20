@@ -113,11 +113,31 @@ def _ensure_schema_columns() -> None:
         ("hsts_max_age", "INTEGER NOT NULL DEFAULT 31536000"),
         ("nosniff_enabled", "BOOLEAN NOT NULL DEFAULT 1"),
         ("permissions_policy", "VARCHAR(255) NOT NULL DEFAULT 'camera=(), microphone=(), geolocation=()'"),
+        ("opsbase_project_id", "INTEGER"),
+        ("opsbase_project_slug", "VARCHAR(150)"),
+        ("opsbase_schema_name", "VARCHAR(150)"),
+        ("opsbase_linked_at", "DATETIME"),
+        ("opsbase_last_synced_at", "DATETIME"),
+        ("opsbase_key_status", "VARCHAR(40) NOT NULL DEFAULT 'active'"),
+        ("opsbase_key_prefix", "VARCHAR(80)"),
+        ("opsbase_cors_synced", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("opsbase_allowed_origins_json", "TEXT NOT NULL DEFAULT '[]'"),
     ]
 
     cors_migrations = [
         ("allow_credentials", "BOOLEAN NOT NULL DEFAULT 0"),
         ("max_age_seconds", "INTEGER NOT NULL DEFAULT 3600"),
+    ]
+
+    public_config_migrations = [
+        ("opsbase_project_id", "INTEGER"),
+        ("opsbase_schema_name", "VARCHAR(150)"),
+        ("opsbase_key_prefix", "VARCHAR(80)"),
+        ("opsbase_key_status", "VARCHAR(40) NOT NULL DEFAULT 'active'"),
+        ("opsbase_data_plane_url", "VARCHAR(500)"),
+        ("opsbase_auth_url", "VARCHAR(500)"),
+        ("key_source", "VARCHAR(50) NOT NULL DEFAULT 'opsbase_discovery'"),
+        ("last_synced_at", "DATETIME"),
     ]
 
     with engine.begin() as conn:
@@ -136,6 +156,13 @@ def _ensure_schema_columns() -> None:
                     logger.info(f"Migrated column opspages_cors_rules.{col_name}")
             # Ensure wildcard '*' rules never have allow_credentials=1
             conn.execute(text("UPDATE opspages_cors_rules SET allow_credentials = 0 WHERE origin = '*'"))
+
+        if "opspages_public_configs" in existing_tables:
+            existing_cols = {c["name"] for c in inspector.get_columns("opspages_public_configs")}
+            for col_name, col_ddl in public_config_migrations:
+                if col_name not in existing_cols:
+                    conn.execute(text(f"ALTER TABLE opspages_public_configs ADD COLUMN {col_name} {col_ddl}"))
+                    logger.info(f"Migrated column opspages_public_configs.{col_name}")
 
 
 def init_meta_db() -> None:
@@ -204,45 +231,59 @@ def init_meta_db() -> None:
             if updated:
                 db.commit()
 
-        # 3. Ensure default Public Runtime Configs (P-13) exist for all existing projects
+        # 3. Ensure all existing projects are linked & synced with OpsBase Discovery (Part 2 - P-13)
+        from app.services.opsbase_service import OpsBaseIntegrationService, VALID_PUBLIC_CONFIG_ENVIRONMENTS
+
         projects = db.query(Project).all()
         for proj in projects:
-            for env_name, env_url, env_key in [
-                ("production", "http://localhost:8000", f"opsb_pub_live_{proj.slug.replace('-', '_')}_v1"),
-                ("staging", "http://localhost:8000", f"opsb_pub_stg_{proj.slug.replace('-', '_')}_v1"),
-                ("development", "http://localhost:8000", f"opsb_pub_dev_{proj.slug.replace('-', '_')}_v1"),
-            ]:
-                existing_cfg = (
-                    db.query(ProjectPublicConfig)
-                    .filter(
-                        ProjectPublicConfig.project_id == proj.id,
-                        ProjectPublicConfig.environment == env_name,
-                    )
-                    .first()
+            try:
+                OpsBaseIntegrationService.link_or_sync_project(
+                    db=db,
+                    project=proj,
+                    opsbase_project_id=proj.opsbase_project_id,
+                    opsbase_project_slug=proj.opsbase_project_slug or proj.slug,
+                    actor_email=default_email,
+                    auto_provision_if_missing=True,
+                    sync_cors=True,
                 )
-                if not existing_cfg:
-                    cfg = ProjectPublicConfig(
-                        project_id=proj.id,
-                        environment=env_name,
-                        opsbase_url=env_url,
-                        opsbase_public_key=env_key,
-                        opsbase_project_slug=proj.slug,
-                        scopes="public:read,data:query,auth:session,crud:items",
-                        inject_in_html=True,
-                        is_active=True,
-                        updated_by_email=default_email,
+            except Exception as sync_exc:
+                logger.warning(f"OpsBase discovery sync skipped during startup for '{proj.slug}': {sync_exc}")
+                # Ensure all 4 environments exist with default URL http://localhost:8001/api/v1 and NO fake placeholder keys
+                for env_name in VALID_PUBLIC_CONFIG_ENVIRONMENTS:
+                    existing_cfg = (
+                        db.query(ProjectPublicConfig)
+                        .filter(
+                            ProjectPublicConfig.project_id == proj.id,
+                            ProjectPublicConfig.environment == env_name,
+                        )
+                        .first()
                     )
-                    cfg.set_public_vars(
-                        {
-                            "OPSBASE_URL": env_url,
-                            "OPSBASE_PUBLIC_KEY": env_key,
-                            "OPSBASE_PROJECT": proj.slug,
-                            "OPSPAGES_BASE_URL": f"/pages/{proj.slug}",
-                            "ENVIRONMENT": env_name,
-                        }
-                    )
-                    db.add(cfg)
-        db.commit()
+                    if not existing_cfg:
+                        cfg = ProjectPublicConfig(
+                            project_id=proj.id,
+                            environment=env_name,
+                            opsbase_url=settings.OPSBASE_DEFAULT_API_URL,
+                            opsbase_public_key="",
+                            opsbase_project_slug=proj.slug,
+                            opsbase_key_status="unlinked",
+                            key_source="opsbase_discovery",
+                            scopes="public:read,data:query,auth:session,crud:items",
+                            inject_in_html=True,
+                            is_active=True,
+                            updated_by_email=default_email,
+                        )
+                        cfg.set_public_vars({})
+                        db.add(cfg)
+                    else:
+                        if existing_cfg.opsbase_url.startswith("http://localhost:8000"):
+                            existing_cfg.opsbase_url = settings.OPSBASE_DEFAULT_API_URL
+                        is_bad, _ = OpsBaseIntegrationService.is_placeholder_or_forbidden_key(
+                            existing_cfg.opsbase_public_key
+                        )
+                        if is_bad:
+                            existing_cfg.opsbase_public_key = ""
+                            existing_cfg.opsbase_key_status = "unlinked"
+                db.commit()
 
         # 4. Seed initial diagnostic/telemetry ErrorReport records if table is empty
         if db.query(ErrorReport).count() == 0:

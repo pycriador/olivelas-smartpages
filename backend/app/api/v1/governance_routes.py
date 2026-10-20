@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
-from fastapi import APIRouter, Depends, Query, Request, status
+from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
@@ -25,9 +25,11 @@ from app.schemas.governance import (
     QuotaUpdateRequest,
     QuotaUsageResponse,
 )
+from app.schemas.project import OpsBaseWebhookRequest
 from app.services.audit_service import AuditService
 from app.services.auth_service import get_current_user, require_project_role, resolve_optional_user_from_request
 from app.services.hbac_service import HBACService
+from app.services.opsbase_service import OpsBaseIntegrationService
 from app.services.project_service import ProjectService
 from app.services.quota_service import CorsService, QuotaService
 from app.services.token_service import TokenService
@@ -207,7 +209,7 @@ def list_audit_logs(
     }
 
 
-# 5. Public Runtime Configuration Router (P-13)
+# 5. Public Runtime Configuration Router (P-13 & Part 2)
 public_projects_router = APIRouter(prefix="/public/projects", tags=["Public Runtime Configuration (P-13)"])
 
 
@@ -217,18 +219,58 @@ public_projects_router = APIRouter(prefix="/public/projects", tags=["Public Runt
 )
 def get_public_project_runtime_config(
     slug: str,
-    env: str = Query(default="production", description="Target environment (production, staging, development, preview)"),
+    request: Request,
+    response: Response,
+    env: Optional[str] = Query(
+        default=None,
+        description="Target environment (production, staging, development, preview). Invalid values return HTTP 400/404.",
+    ),
     version: Optional[str] = Query(default=None, description="Optional release version tag"),
     db: Session = Depends(get_meta_db),
 ) -> Dict[str, Any]:
     project = db.query(Project).filter(Project.slug == slug, Project.is_active.is_(True)).first()
     if not project:
         raise NotFoundError(f"Project '{slug}' not found.")
+
+    if "env" in request.query_params:
+        target_env = OpsBaseIntegrationService.validate_environment_name(
+            request.query_params.get("env"), allow_none=False
+        )
+    else:
+        target_env = OpsBaseIntegrationService.validate_environment_name(env, allow_none=True)
+
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
     return ProjectService.build_runtime_config_payload(
         db=db,
         project=project,
-        environment=env,
+        environment=target_env,
         version_override=version,
+    )
+
+
+# 5b. OpsBase Webhooks Router (Part 2 - Zero-Redeploy Key Sync & Revocation)
+webhooks_router = APIRouter(prefix="/webhooks", tags=["OpsBase Integration Webhooks (Part 2)"])
+
+
+@webhooks_router.post(
+    "/opsbase",
+    summary="Receive OpsBase Key Rotation / Revocation Webhook without Redeploying Sites (Part 2)",
+)
+@webhooks_router.post(
+    "/opsbase/key-sync",
+    summary="Synchronize Rotated or Revoked OpsBase Public Key via Webhook (Part 2)",
+)
+def receive_opsbase_webhook(
+    request: Request,
+    payload: OpsBaseWebhookRequest,
+    db: Session = Depends(get_meta_db),
+) -> Dict[str, Any]:
+    ip_addr = request.client.host if request.client else None
+    return OpsBaseIntegrationService.handle_opsbase_webhook(
+        db=db,
+        payload=payload.model_dump(),
+        ip_address=ip_addr,
     )
 
 

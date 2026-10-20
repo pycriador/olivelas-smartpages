@@ -29,6 +29,7 @@ from app.api.v1.governance_routes import (
     public_projects_router,
     quotas_router,
     tokens_router,
+    webhooks_router,
 )
 from app.api.v1.groups import router as groups_router
 from app.api.v1.projects import router as projects_router
@@ -42,6 +43,7 @@ from app.schemas.project import ProjectCreate
 from app.services.auth_service import resolve_optional_user_from_request
 from app.services.git_storage_service import GitStorageService
 from app.services.hbac_service import HBACService
+from app.services.opsbase_service import OpsBaseIntegrationService
 from app.services.project_service import ProjectService
 
 logger = setup_logging(settings.LOG_LEVEL)
@@ -258,6 +260,7 @@ api_v1_router.include_router(quotas_router)
 api_v1_router.include_router(cors_router)
 api_v1_router.include_router(audit_router)
 api_v1_router.include_router(public_projects_router)
+api_v1_router.include_router(webhooks_router)
 api_v1_router.include_router(errors_router)
 
 
@@ -581,7 +584,8 @@ def _rewrite_html_for_preview_and_runtime_config(
             elif "<HEAD>" in output:
                 output = output.replace("<HEAD>", f"<HEAD>\n  {base_tag}", 1)
 
-    # P-13: Inject Public Runtime Configuration if enabled for this project
+    # P-13 & Part 2: Inject Public Runtime Configuration if enabled for this project.
+    # Re-raise ValidationError/NotFoundError so invalid ?env= never silently falls back to production.
     try:
         cfg_payload = ProjectService.build_runtime_config_payload(
             db=db,
@@ -597,6 +601,7 @@ def _rewrite_html_for_preview_and_runtime_config(
                 f"window.__OPSBASE_CONFIG__=window.__OPSPAGES_CONFIG__.opsbase;"
                 f"window.OPSBASE_URL=window.__OPSPAGES_CONFIG__.opsbase_url;"
                 f"window.OPSBASE_PUBLIC_KEY=window.__OPSPAGES_CONFIG__.opsbase_public_key;"
+                f"window.OPSBASE_ANON_KEY=window.__OPSPAGES_CONFIG__.opsbase_anon_key;"
                 f"</script>"
             )
             if 'id="opspages-runtime-config"' not in output:
@@ -606,6 +611,8 @@ def _rewrite_html_for_preview_and_runtime_config(
                     output = f"{script_tag}\n{output}"
                 else:
                     output = f"{script_tag}\n{output}"
+    except (ValidationError, NotFoundError):
+        raise
     except Exception as e:
         logger.warning(f"Runtime config injection warning for {project.slug}: {e}")
 
@@ -630,11 +637,19 @@ def _serve_static_directory(
         return Response(status_code=204, headers=headers)
 
     clean_subpath = (subpath or "").strip("/")
-    env_param = request.query_params.get("env") or ("preview" if is_version_preview else "production")
+    if "env" in request.query_params:
+        env_param = OpsBaseIntegrationService.validate_environment_name(
+            request.query_params.get("env"), allow_none=False
+        )
+        # Validate immediately that the environment config exists and is active
+        ProjectService.get_public_config_by_env(db, project, env_param)
+    else:
+        env_param = "preview" if is_version_preview else "production"
 
-    # P-13: Built-in virtual endpoints `env-config.js` and `env-config.json` on every project & preview route
+    # P-13 & Part 2: Built-in virtual endpoints `env-config.js` and `env-config.json` on every project & preview route
     if clean_subpath in ("env-config.js", "env-config.json"):
-        headers["Cache-Control"] = _compute_cache_control(project, clean_subpath, is_html_or_runtime_config=True)
+        headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        headers["Pragma"] = "no-cache"
         mtime = (project.updated_at.timestamp() if project.updated_at else 1729440000.0)
         if clean_subpath == "env-config.js":
             js_body = ProjectService.build_runtime_config_js(

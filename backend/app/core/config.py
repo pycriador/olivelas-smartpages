@@ -68,11 +68,33 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://localhost:8000",
         "http://127.0.0.1:8000",
+        "http://localhost:8001",
+        "http://127.0.0.1:8001",
         "http://localhost:8005",
         "http://127.0.0.1:8005",
         "http://localhost:8010",
         "http://127.0.0.1:8010",
     ]
+
+    # AIOps OpsBase Integration (Part 2 - P-13 & Discovery)
+    OPSBASE_BASE_URL: str = "http://localhost:8001"
+    OPSBASE_DEFAULT_API_URL: str = "http://localhost:8001/api/v1"
+    OPSBASE_STAGING_API_URL: str = "http://localhost:8001/api/v1"
+    OPSBASE_DEVELOPMENT_API_URL: str = "http://localhost:8001/api/v1"
+    OPSBASE_PREVIEW_API_URL: str = "http://localhost:8001/api/v1"
+    OPSBASE_WEBHOOK_SECRET: str = "aiops-opsbase-opspages-webhook-secret-loft"
+    OPSPAGES_PUBLIC_ORIGIN: str = "http://localhost:8005"
+    OPSPAGES_FRONTEND_ORIGIN: str = "http://localhost:5176"
+
+    def get_default_opsbase_url_for_env(self, environment: str = "production") -> str:
+        env = (environment or "production").strip().lower()
+        mapping = {
+            "production": self.OPSBASE_DEFAULT_API_URL,
+            "staging": self.OPSBASE_STAGING_API_URL,
+            "development": self.OPSBASE_DEVELOPMENT_API_URL,
+            "preview": self.OPSBASE_PREVIEW_API_URL,
+        }
+        return mapping.get(env, self.OPSBASE_DEFAULT_API_URL)
 
     # Paths
     BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent

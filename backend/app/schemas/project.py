@@ -89,6 +89,8 @@ class ProjectCreate(ProjectBase):
     github_token: Optional[str] = None
     seed_initial_build: bool = True
     environment: Optional[str] = "production"
+    opsbase_project_id: Optional[int] = None
+    opsbase_project_slug: Optional[str] = None
 
 
 class ProjectUpdate(BaseModel):
@@ -114,6 +116,8 @@ class ProjectUpdate(BaseModel):
     github_subpath: Optional[str] = None
     github_token: Optional[str] = None
     auto_sync_github: Optional[bool] = None
+    opsbase_project_id: Optional[int] = None
+    opsbase_project_slug: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -134,6 +138,14 @@ class ProjectResponse(ProjectBase):
     locked_version: Optional[str] = None
     locked_by: Optional[str] = None
     locked_reason: Optional[str] = None
+    opsbase_project_id: Optional[int] = None
+    opsbase_project_slug: Optional[str] = None
+    opsbase_schema_name: Optional[str] = None
+    opsbase_linked_at: Optional[datetime] = None
+    opsbase_last_synced_at: Optional[datetime] = None
+    opsbase_key_status: str = "active"
+    opsbase_key_prefix: Optional[str] = None
+    opsbase_cors_synced: bool = False
     is_active: bool = True
     created_by: Optional[int] = None
     created_at: datetime
@@ -186,27 +198,32 @@ class ProjectKeyRotateRequest(BaseModel):
 
 class ProjectPublicConfigUpsertRequest(BaseModel):
     """
-    Upsert request for Project Public Runtime Config & Scoped Opsbase Credentials (P-13).
+    Upsert request for Project Public Runtime Config & Scoped Opsbase Credentials (P-13 & Part 2).
+    Note: `opsbase_public_key` cannot be manually typed or set to a placeholder; it must be
+    discovered from OpsBase via `/api/v1/projects/{id}/opsbase/link` or `/opsbase/sync`.
     """
     environment: str = Field(
         default="production",
-        pattern="^(production|staging|development|preview)$",
         description="Target environment (production, staging, development, preview)",
     )
     opsbase_url: str = Field(
-        default="http://localhost:8000",
+        default="http://localhost:8001/api/v1",
         max_length=500,
-        description="Base URL of AIOps Opsbase backend API for this environment",
+        description="Base URL of AIOps Opsbase backend API for this environment (default: http://localhost:8001/api/v1)",
     )
     opsbase_public_key: Optional[str] = Field(
         default=None,
         max_length=500,
-        description="Scoped public/anonymous key for browser client access to Opsbase (leave empty to auto-generate)",
+        description="Read-only discovered key from OpsBase. Manually typed or placeholder values are rejected with HTTP 400.",
+    )
+    opsbase_project_id: Optional[int] = Field(
+        default=None,
+        description="Target project ID in OpsBase (if linking/syncing during config update)",
     )
     opsbase_project_slug: Optional[str] = Field(
         default=None,
         max_length=150,
-        description="Target project/tenant slug in Opsbase",
+        description="Target project/tenant slug in OpsBase",
     )
     scopes: str = Field(
         default="public:read,data:query,auth:session,crud:items",
@@ -224,8 +241,70 @@ class ProjectPublicConfigUpsertRequest(BaseModel):
     is_active: bool = Field(default=True)
     rotate_public_key: bool = Field(
         default=False,
-        description="When True, rotates and generates a new scoped opsb_pub_... public key",
+        description="When True, re-synchronizes the latest rotated public anon key from OpsBase discovery",
     )
+
+
+class OpsBaseLinkRequest(BaseModel):
+    """
+    Request to link or synchronize an OpsPages project with an OpsBase project via discovery.
+    Manual keys or placeholders are strictly rejected.
+    """
+    opsbase_project_id: Optional[int] = Field(
+        default=None,
+        description="Numeric ID of the target project in OpsBase",
+    )
+    opsbase_project_slug: Optional[str] = Field(
+        default=None,
+        max_length=150,
+        description="Slug of the target project in OpsBase (e.g., aiops_crud or portal_loft)",
+    )
+    opsbase_base_url: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Base URL of OpsBase server for discovery (defaults to http://localhost:8001)",
+    )
+    environment_urls: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="Optional per-environment OpsBase API URLs (e.g., {'production': 'https://api.dominio.com/api/v1'})",
+    )
+    auto_provision_if_missing: bool = Field(
+        default=True,
+        description="When True, creates the project in OpsBase if it does not exist yet",
+    )
+    sync_cors: bool = Field(
+        default=True,
+        description="When True, registers exact OpsPages site origins in the OpsBase project's CORS allowlist",
+    )
+    # Catch forbidden manual key inputs so we can explicitly return HTTP 400
+    opsbase_public_key: Optional[str] = Field(default=None)
+    anon_key: Optional[str] = Field(default=None)
+    public_key: Optional[str] = Field(default=None)
+
+
+class OpsBaseCorsSyncRequest(BaseModel):
+    """Request to align exact-origin CORS between OpsPages and OpsBase."""
+    extra_origins: List[str] = Field(default_factory=list)
+    replace_existing: bool = Field(default=False)
+    opsbase_base_url: Optional[str] = None
+
+
+class OpsBaseWebhookRequest(BaseModel):
+    """Webhook payload sent by OpsBase when a project's anon key is rotated or revoked."""
+    event: str = Field(
+        default="key.rotated",
+        description="Event type: key.rotated | ROTATE_API_KEY | key.revoked | REVOKE_API_KEY | sync",
+    )
+    opsbase_project_id: Optional[int] = None
+    project_id: Optional[int] = None
+    opsbase_project_slug: Optional[str] = None
+    project_slug: Optional[str] = None
+    slug: Optional[str] = None
+    anon_key: Optional[str] = None
+    public_key: Optional[str] = None
+    key_type: str = Field(default="anon")
+    key_status: Optional[str] = None
+    key_prefix: Optional[str] = None
 
 
 class ProjectPublicConfigResponse(BaseModel):
@@ -235,7 +314,15 @@ class ProjectPublicConfigResponse(BaseModel):
     environment: str
     opsbase_url: str
     opsbase_public_key: str
+    opsbase_project_id: Optional[int] = None
     opsbase_project_slug: str
+    opsbase_schema_name: Optional[str] = None
+    opsbase_key_prefix: Optional[str] = None
+    opsbase_key_status: str = "active"
+    opsbase_data_plane_url: Optional[str] = None
+    opsbase_auth_url: Optional[str] = None
+    key_source: str = "opsbase_discovery"
+    last_synced_at: Optional[datetime] = None
     scopes: List[str] = Field(default_factory=list)
     scopes_raw: str = ""
     public_vars: Dict[str, Any] = Field(default_factory=dict)
