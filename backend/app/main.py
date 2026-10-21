@@ -599,8 +599,8 @@ def _rewrite_html_for_preview_and_runtime_config(
                 f"window.__OPSPAGES_CONFIG__={cfg_json};"
                 f"window.__OPSBASE_CONFIG__=window.__OPSPAGES_CONFIG__.opsbase;"
                 f"window.OPSBASE_URL=window.__OPSPAGES_CONFIG__.opsbase_url;"
-                f"window.OPSBASE_PUBLIC_KEY=window.__OPSPAGES_CONFIG__.opsbase_public_key;"
-                f"window.OPSBASE_ANON_KEY=window.__OPSPAGES_CONFIG__.opsbase_anon_key;"
+                f"window.OPSBASE_PUBLIC_KEY=window.__OPSPAGES_CONFIG__.opsbase.public_key;"
+                f"window.OPSBASE_ANON_KEY=window.__OPSPAGES_CONFIG__.opsbase.public_key;"
                 f"</script>"
             )
             if 'id="opspages-runtime-config"' not in output:

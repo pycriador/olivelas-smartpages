@@ -1205,8 +1205,6 @@ jobs:
             "OPSBASE_API_URL": cfg.opsbase_url,
             "OPSBASE_DATA_PLANE_URL": data_plane_url or "",
             "OPSBASE_AUTH_URL": auth_url or "",
-            "OPSBASE_PUBLIC_KEY": active_key,
-            "OPSBASE_ANON_KEY": active_key,
             "OPSBASE_PROJECT": opsbase_slug,
             "OPSBASE_PROJECT_ID": opsbase_proj_id,
             "OPSBASE_KEY_STATUS": cfg.opsbase_key_status,
@@ -1224,15 +1222,12 @@ jobs:
                 "api_base_url": cfg.opsbase_url,
                 "data_plane_url": data_plane_url,
                 "auth_url": auth_url,
+                # P-18: único campo com a chave anon/pública (aliases deprecated removidos).
                 "public_key": active_key,
-                "publicKey": active_key,
-                "anon_key": active_key,
-                "anonKey": active_key,
                 "key_prefix": cfg.opsbase_key_prefix if active_key else None,
                 "key_type": "anon",
                 "key_status": cfg.opsbase_key_status,
                 "key_source": "opsbase_discovery",
-                "keySource": "opsbase_discovery",
                 "project_id": opsbase_proj_id,
                 "project_slug": opsbase_slug,
                 "schema_name": opsbase_schema,
@@ -1240,10 +1235,6 @@ jobs:
                 "scopes": scopes_list,
             },
             "opsbase_url": cfg.opsbase_url,
-            "opsbase_public_key": active_key,
-            "opsbase_anon_key": active_key,
-            "public_key": active_key,
-            "anon_key": active_key,
             "opsbase_project_id": opsbase_proj_id,
             "opsbase_project_slug": opsbase_slug,
             "opsbase_key_status": cfg.opsbase_key_status,
@@ -1274,7 +1265,7 @@ jobs:
             "  w.__OPSPAGES_CONFIG__ = cfg;\n"
             "  w.__OPSBASE_CONFIG__ = cfg.opsbase;\n"
             "  w.OPSBASE_URL = cfg.opsbase_url;\n"
-            "  w.OPSBASE_PUBLIC_KEY = cfg.opsbase_public_key;\n"
-            "  w.OPSBASE_ANON_KEY = cfg.opsbase_anon_key;\n"
+            "  w.OPSBASE_PUBLIC_KEY = cfg.opsbase.public_key;\n"
+            "  w.OPSBASE_ANON_KEY = cfg.opsbase.public_key;\n"
             "})(typeof window !== 'undefined' ? window : globalThis);\n"
         )

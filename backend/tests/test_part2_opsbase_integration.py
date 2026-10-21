@@ -140,12 +140,15 @@ def run_all_tests() -> None:
             payload = cfg_resp.json()
             assert payload["environment"] == env_name
             assert payload["opsbase_url"] == "http://localhost:8001/api/v1"
-            assert payload["opsbase_public_key"] == MOCK_DISCOVERY_AIOPS_CRUD["anon_key"]
-            assert payload["anon_key"] == MOCK_DISCOVERY_AIOPS_CRUD["anon_key"]
+            assert payload["opsbase"]["public_key"] == MOCK_DISCOVERY_AIOPS_CRUD["anon_key"]
+            # P-18: aliases deprecated removidos da config pública
+            for alias in ("opsbase_public_key", "opsbase_anon_key", "public_key", "anon_key"):
+                assert alias not in payload, f"alias {alias} ainda presente"
             assert payload["opsbase"]["url"] == "http://localhost:8001/api/v1"
-            assert payload["opsbase"]["publicKey"] == MOCK_DISCOVERY_AIOPS_CRUD["anon_key"]
-            assert payload["opsbase"]["anonKey"] == MOCK_DISCOVERY_AIOPS_CRUD["anon_key"]
-            assert payload["opsbase"]["keySource"] == "opsbase_discovery"
+            for alias in ("publicKey", "anon_key", "anonKey", "keySource"):
+                assert alias not in payload["opsbase"], f"alias opsbase.{alias} ainda presente"
+            assert payload["opsbase"]["key_source"] == "opsbase_discovery"
+            assert "OPSBASE_PUBLIC_KEY" not in payload["env"] and "OPSBASE_ANON_KEY" not in payload["env"]
             # Ensure zero forbidden secrets in payload
             raw_json = cfg_resp.text.lower()
             assert "service_role" not in raw_json
@@ -218,7 +221,7 @@ def run_all_tests() -> None:
         assert stage_put.status_code == 200, f"Staging update failed: {stage_put.text}"
         stage_cfg = client.get("/api/v1/public/projects/aiops-crud/config?env=staging").json()
         assert stage_cfg["opsbase_url"] == "https://api-staging.opsbase.loft.com.br/api/v1"
-        assert stage_cfg["opsbase_public_key"] == MOCK_DISCOVERY_AIOPS_CRUD["anon_key"]
+        assert stage_cfg["opsbase"]["public_key"] == MOCK_DISCOVERY_AIOPS_CRUD["anon_key"]
         assert stage_cfg["env"]["FEATURE_FLAG_X"] is True
 
         # Reset staging URL back to http://localhost:8001/api/v1
@@ -251,7 +254,7 @@ def run_all_tests() -> None:
         )
         assert wh_rotate.status_code == 200, f"Webhook rotation failed: {wh_rotate.text}"
         after_rot = client.get("/api/v1/public/projects/aiops-crud/config?env=production").json()
-        assert after_rot["opsbase_public_key"] == rotated_key
+        assert after_rot["opsbase"]["public_key"] == rotated_key
 
         # Webhook revocation clears the key immediately without redeploy
         wh_revoke = client.post(
@@ -266,14 +269,14 @@ def run_all_tests() -> None:
         )
         assert wh_revoke.status_code == 200, f"Webhook revoke failed: {wh_revoke.text}"
         after_rev = client.get("/api/v1/public/projects/aiops-crud/config?env=production").json()
-        assert after_rev["opsbase_public_key"] == ""
+        assert after_rev["opsbase"]["public_key"] == ""
         assert after_rev["opsbase_key_status"] == "revoked"
 
         # Re-sync on demand restores the active key from OpsBase Discovery
         resync = client.post("/api/v1/projects/2/opsbase/sync", headers=headers, json={})
         assert resync.status_code == 200
         after_resync = client.get("/api/v1/public/projects/aiops-crud/config?env=production").json()
-        assert after_resync["opsbase_public_key"] == MOCK_DISCOVERY_AIOPS_CRUD["anon_key"]
+        assert after_resync["opsbase"]["public_key"] == MOCK_DISCOVERY_AIOPS_CRUD["anon_key"]
         assert after_resync["opsbase_key_status"] == "active"
 
         # 7. Verify CORS exact-origin alignment and custom_domain registration
