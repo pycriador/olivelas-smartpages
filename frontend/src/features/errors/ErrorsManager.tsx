@@ -192,13 +192,29 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
   const getSeverityTag = (sev: string) => {
     switch (sev) {
       case 'critical':
-        return <Tag color="magenta">CRÍTICO</Tag>;
+        return (
+          <Tag color="magenta" className="m-0 font-semibold whitespace-nowrap">
+            CRÍTICO
+          </Tag>
+        );
       case 'error':
-        return <Tag color="error">ERRO</Tag>;
+        return (
+          <Tag color="error" className="m-0 font-semibold whitespace-nowrap">
+            ERRO
+          </Tag>
+        );
       case 'warning':
-        return <Tag color="warning">ALERTA</Tag>;
+        return (
+          <Tag color="warning" className="m-0 font-semibold whitespace-nowrap">
+            ALERTA
+          </Tag>
+        );
       default:
-        return <Tag color="processing">INFO</Tag>;
+        return (
+          <Tag color="processing" className="m-0 font-semibold whitespace-nowrap">
+            INFO
+          </Tag>
+        );
     }
   };
 
@@ -206,20 +222,28 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
     switch (st) {
       case 'resolved':
         return (
-          <Tag icon={<CheckCircleOutlined />} color="success">
+          <Tag icon={<CheckCircleOutlined />} color="success" className="m-0 font-semibold whitespace-nowrap">
             RESOLVIDO
           </Tag>
         );
       case 'investigating':
         return (
-          <Tag icon={<WarningOutlined />} color="warning">
+          <Tag icon={<WarningOutlined />} color="warning" className="m-0 font-semibold whitespace-nowrap">
             EM ANÁLISE
           </Tag>
         );
       case 'ignored':
-        return <Tag color="default">IGNORADO</Tag>;
+        return (
+          <Tag color="default" className="m-0 font-semibold whitespace-nowrap">
+            IGNORADO
+          </Tag>
+        );
       default:
-        return <Tag color="volcano">ABERTO</Tag>;
+        return (
+          <Tag color="volcano" className="m-0 font-semibold whitespace-nowrap">
+            ABERTO
+          </Tag>
+        );
     }
   };
 
@@ -351,18 +375,36 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
           </div>
         </Card>
 
-        <Card className="border-theme" styles={{ body: { padding: 0 } }}>
+        <Card
+          title={
+            <div className="flex items-center gap-2">
+              <BugOutlined className="text-[#FF774A]" />
+              <span className="text-sm font-bold">
+                Registros de Incidentes & Diagnóstico de Rotas ({items.length})
+              </span>
+            </div>
+          }
+          extra={
+            <span className="text-xs text-slate-400 font-mono">
+              /errors?page={page}&amp;page_size={Math.max(10, pageSize)}
+            </span>
+          }
+          className="border-theme"
+          styles={{ body: { padding: 0 } }}
+        >
           <Table
             rowKey="id"
             loading={loading}
             dataSource={items}
+            scroll={{ x: 1120 }}
             pagination={{
               current: page,
               pageSize: Math.max(10, pageSize),
               total: items.length,
               showSizeChanger: true,
               pageSizeOptions: ['10', '20', '50', '100'],
-              showTotal: (tot, range) => `${range[0]}-${range[1]} de ${tot} registros (URL ?page=${page}&page_size=${Math.max(10, pageSize)})`,
+              showTotal: (tot, range) =>
+                `${range[0]}-${range[1]} de ${tot} registros (URL ?page=${page}&page_size=${Math.max(10, pageSize)})`,
               onChange: (nextPage, nextSize) => setPage(nextPage, nextSize),
             }}
             locale={{
@@ -370,41 +412,50 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
             }}
             columns={[
               {
-                title: 'Código',
+                title: 'Código & Severidade',
                 dataIndex: 'error_code',
-                width: 110,
-                render: (val: string) => (
-                  <span className="font-mono text-xs font-bold text-[#FF774A]">
-                    {val || 'ERR-GEN'}
-                  </span>
-                ),
-              },
-              {
-                title: 'Severidade',
-                dataIndex: 'severity',
-                width: 110,
-                render: (sev: string) => getSeverityTag(sev),
-              },
-              {
-                title: 'Projeto / Rota URL',
-                render: (_: any, row: ErrorReportItem) => (
-                  <div className="space-y-0.5">
+                width: 250,
+                render: (val: string, row: ErrorReportItem) => (
+                  <div className="flex flex-col items-start gap-1.5">
+                    <Tag
+                      color="orange"
+                      className="font-mono text-[11px] font-bold m-0 whitespace-nowrap"
+                    >
+                      {val || 'ERR-GEN'}
+                    </Tag>
                     <div className="flex items-center gap-1.5">
-                      {row.project_slug && (
-                        <Tag color="blue" className="m-0 text-[10px]">
-                          {row.project_slug}
-                        </Tag>
-                      )}
-                      <span className="font-mono text-xs text-slate-300">
-                        {row.route_path || '/'}
-                      </span>
+                      {getSeverityTag(row.severity)}
                       {row.http_status && (
-                        <Tag color={row.http_status >= 400 ? 'volcano' : 'geekblue'} className="m-0 text-[10px]">
+                        <Tag
+                          color={row.http_status >= 400 ? 'volcano' : 'geekblue'}
+                          className="m-0 font-mono text-[11px] whitespace-nowrap"
+                        >
                           HTTP {row.http_status}
                         </Tag>
                       )}
                     </div>
-                    <div className="text-[11px] font-mono text-slate-400 truncate max-w-xs" title={row.page_url}>
+                  </div>
+                ),
+              },
+              {
+                title: 'Projeto & Rota URL',
+                width: 300,
+                render: (_: any, row: ErrorReportItem) => (
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {row.project_slug && (
+                        <Tag color="blue" className="m-0 text-[11px] font-mono whitespace-nowrap">
+                          {row.project_slug}
+                        </Tag>
+                      )}
+                      <span className="font-mono text-xs font-semibold text-[#FF774A] break-all">
+                        {row.route_path || '/'}
+                      </span>
+                    </div>
+                    <div
+                      className="text-[11px] font-mono text-slate-400 truncate max-w-[270px]"
+                      title={row.page_url}
+                    >
                       <LinkOutlined className="mr-1" />
                       {row.page_url}
                     </div>
@@ -414,24 +465,26 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
               {
                 title: 'Título & Diagnóstico',
                 render: (_: any, row: ErrorReportItem) => (
-                  <div className="max-w-md">
-                    <div className="font-semibold text-xs">{row.title}</div>
-                    <div className="text-xs text-slate-400 line-clamp-2">{row.message}</div>
+                  <div className="flex flex-col gap-1 min-w-[240px]">
+                    <div className="font-semibold text-xs leading-snug">{row.title}</div>
+                    <div className="text-xs text-slate-400 line-clamp-2 leading-relaxed">
+                      {row.message}
+                    </div>
                   </div>
                 ),
               },
               {
                 title: 'Status',
                 dataIndex: 'status',
-                width: 140,
+                width: 145,
                 render: (st: string) => getStatusTag(st),
               },
               {
-                title: 'Data',
+                title: 'Data / Hora',
                 dataIndex: 'created_at',
-                width: 145,
+                width: 165,
                 render: (val: string) => (
-                  <span className="font-mono text-xs text-slate-400">
+                  <span className="font-mono text-xs text-slate-400 whitespace-nowrap">
                     {val ? new Date(val).toLocaleString('pt-BR') : '-'}
                   </span>
                 ),
@@ -439,9 +492,9 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
               {
                 title: 'Ações',
                 align: 'right',
-                width: 180,
+                width: 190,
                 render: (_: any, row: ErrorReportItem) => (
-                  <div className="flex items-center justify-end gap-1.5">
+                  <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                     {isAuthenticated && row.status !== 'resolved' && (
                       <Button
                         size="small"
@@ -595,7 +648,7 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
               {selectedError.http_status && <Tag color="purple">HTTP {selectedError.http_status}</Tag>}
             </div>
 
-            <div className="p-3 rounded-lg bg-black/20 border border-white/10 space-y-1 font-mono">
+            <div className="p-3 rounded-lg bg-slate-500/5 border border-theme space-y-1 font-mono">
               <div>
                 <span className="text-slate-400">URL: </span>
                 <span className="text-[#FF774A] break-all">{selectedError.page_url}</span>
@@ -611,16 +664,16 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
             </div>
 
             <div>
-              <div className="font-semibold mb-1 text-slate-300">Diagnóstico / Mensagem:</div>
-              <div className="p-3 rounded-lg bg-white/5 border border-white/10 leading-relaxed">
+              <div className="font-semibold mb-1 text-slate-400">Diagnóstico / Mensagem:</div>
+              <div className="p-3 rounded-lg bg-slate-500/5 border border-theme leading-relaxed">
                 {selectedError.message}
               </div>
             </div>
 
             {selectedError.stack_trace && (
               <div>
-                <div className="font-semibold mb-1 text-slate-300">Stack Trace / Evidência:</div>
-                <pre className="p-3 rounded-lg bg-black/40 border border-white/10 font-mono text-[11px] overflow-x-auto">
+                <div className="font-semibold mb-1 text-slate-400">Stack Trace / Evidência:</div>
+                <pre className="p-3 rounded-lg bg-[#0B131E] text-slate-200 border border-[#223147] font-mono text-[11px] overflow-x-auto">
                   {selectedError.stack_trace}
                 </pre>
               </div>
