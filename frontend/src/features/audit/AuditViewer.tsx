@@ -86,11 +86,23 @@ export const AuditViewer: React.FC = () => {
         </div>
       </Card>
 
-      <Card className="border-theme" styles={{ body: { padding: 0 } }}>
+      <Card
+        title={
+          <div className="flex items-center justify-between py-1">
+            <span className="font-bold text-sm">Trilha de Auditoria ({logs.length})</span>
+            <Tag color="blue" className="m-0 font-mono text-[11px]">
+              APPEND-ONLY LOG
+            </Tag>
+          </div>
+        }
+        className="border-theme overflow-hidden"
+        styles={{ body: { padding: 0 } }}
+      >
         <Table
           rowKey="id"
           loading={loading}
           dataSource={logs}
+          scroll={{ x: 980 }}
           pagination={{
             current: page,
             pageSize: Math.max(10, pageSize),
@@ -107,10 +119,11 @@ export const AuditViewer: React.FC = () => {
             {
               title: 'Data / Hora',
               dataIndex: 'created_at',
+              width: 175,
               render: (val: string, row: any) => {
                 const ts = val || row.timestamp;
                 return (
-                  <span className="font-mono text-xs text-slate-400">
+                  <span className="font-mono text-xs text-slate-400 whitespace-nowrap">
                     {ts ? new Date(ts).toLocaleString('pt-BR') : '-'}
                   </span>
                 );
@@ -119,22 +132,31 @@ export const AuditViewer: React.FC = () => {
             {
               title: 'Ator',
               dataIndex: 'actor_email',
-              render: (val: string) => <span className="font-semibold text-xs">{val || 'system'}</span>,
+              width: 190,
+              render: (val: string) => <span className="font-semibold text-xs whitespace-nowrap">{val || 'system'}</span>,
             },
             {
               title: 'Auth',
               dataIndex: 'auth_method',
-              render: (val: string) => <Tag color="blue">{(val || 'jwt').toUpperCase()}</Tag>,
+              width: 100,
+              render: (val: string) => (
+                <Tag color="blue" className="m-0 font-mono text-[11px] whitespace-nowrap">
+                  {(val || 'jwt').toUpperCase()}
+                </Tag>
+              ),
             },
             {
               title: 'Ação',
               dataIndex: 'action',
-              render: (val: string) => <span className="font-mono text-xs text-[#FF774A] font-semibold">{val}</span>,
+              width: 210,
+              render: (val: string) => (
+                <span className="font-mono text-xs text-[#FF774A] font-semibold whitespace-nowrap">{val}</span>
+              ),
             },
             {
               title: 'Recurso',
               render: (_: any, row: any) => (
-                <span className="font-mono text-xs text-slate-300">
+                <span className="font-mono text-xs text-slate-500 break-all">
                   {row.resource_type}:{row.resource_name || row.resource_id || '-'}
                 </span>
               ),
@@ -142,12 +164,16 @@ export const AuditViewer: React.FC = () => {
             {
               title: 'Status',
               dataIndex: 'status_code',
+              width: 95,
               render: (code: number) => (
-                <Tag color={(code || 200) < 400 ? 'success' : 'error'}>{code || 200}</Tag>
+                <Tag color={(code || 200) < 400 ? 'success' : 'error'} className="m-0 font-mono whitespace-nowrap">
+                  {code || 200}
+                </Tag>
               ),
             },
             {
               title: 'Detalhes',
+              width: 105,
               align: 'right',
               render: (_: any, row: any) => (
                 <Button

@@ -223,13 +223,32 @@ button {
 }
 
 /* Ant Design Table pagination & inner cell breathing room */
+.ant-table-wrapper {
+  width: 100%;
+  max-width: 100%;
+}
+
 .ant-table-wrapper .ant-table-pagination.ant-pagination {
   margin: 16px 24px !important;
 }
 
-.ant-table-wrapper .ant-table-thead > tr > th,
+.ant-table-wrapper .ant-table-thead > tr > th {
+  padding: 14px 20px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  white-space: nowrap;
+  vertical-align: middle !important;
+}
+
 .ant-table-wrapper .ant-table-tbody > tr > td {
-  padding: 14px 16px !important;
+  padding: 14px 20px !important;
+  vertical-align: middle !important;
+}
+
+/* Remove default right margin on AntD Tags inside flex/grid gap containers */
+.flex .ant-tag,
+.inline-flex .ant-tag {
+  margin-inline-end: 0 !important;
 }
 
 /* Ant Design Tabs spacing */
