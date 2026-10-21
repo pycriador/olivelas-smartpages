@@ -42,30 +42,30 @@ export const QuotasManager: React.FC = () => {
   if (!activeProject || !usage) return null;
 
   return (
-    <div className="space-y-5">
+    <div className="opspages-page">
       <Card>
         <h3 className="text-lg font-bold m-0 flex items-center gap-2">
           <DatabaseOutlined className="text-[#FF774A]" />
           Cotas de Armazenamento em /repos & Limites de Build ({activeProject.slug})
         </h3>
-        <p className="text-xs text-slate-400 m-0 mt-1">
+        <p className="text-xs text-slate-400 m-0 mt-1.5">
           Monitore o consumo de disco das versões retidas em <code>/repos/{activeProject.slug}</code> e a
           frequência diária de deploys.
         </p>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>
-          <div className="text-xs text-slate-400 mb-1">Armazenamento Total em /repos</div>
-          <div className="text-xl font-bold mb-2">
+          <div className="text-xs text-slate-400 uppercase font-semibold mb-1.5">Armazenamento Total em /repos</div>
+          <div className="text-xl font-bold mb-3">
             {usage.current_storage_mb} MB / {usage.quota.max_storage_mb} MB
           </div>
           <Progress percent={usage.storage_usage_pct} strokeColor="#FF774A" />
         </Card>
 
         <Card>
-          <div className="text-xs text-slate-400 mb-1">Deploys Realizados Hoje</div>
-          <div className="text-xl font-bold mb-2">
+          <div className="text-xs text-slate-400 uppercase font-semibold mb-1.5">Deploys Realizados Hoje</div>
+          <div className="text-xl font-bold mb-3">
             {usage.deploys_today} / {usage.quota.max_deploys_per_day}
           </div>
           <Progress
@@ -78,8 +78,8 @@ export const QuotasManager: React.FC = () => {
         </Card>
 
         <Card>
-          <div className="text-xs text-slate-400 mb-1">Versões Retidas em /repos/releases</div>
-          <div className="text-xl font-bold mb-2">
+          <div className="text-xs text-slate-400 uppercase font-semibold mb-1.5">Versões Retidas em /repos/releases</div>
+          <div className="text-xl font-bold mb-3">
             {usage.retained_versions} / {usage.quota.max_retained_versions}
           </div>
           <Progress
@@ -94,7 +94,7 @@ export const QuotasManager: React.FC = () => {
 
       <Card title="Ajustar Limites do Projeto (Requer Admin)">
         <Form form={form} layout="vertical" onFinish={handleSave}>
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <Form.Item name="max_build_size_mb" label="Tamanho Máx. por Build (MB)">
               <InputNumber min={1} max={2048} className="w-full" />
             </Form.Item>

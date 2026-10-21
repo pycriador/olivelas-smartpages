@@ -20,10 +20,12 @@ version: "1.1"
 No modelo de site estático com acesso direto ao **AIOps OpsBase**, gravar a URL do OpsBase e a chave pública (`anon_key`) dentro do bundle JavaScript durante o build impede a promoção do mesmo artefato entre ambientes (`development`, `staging`, `preview`, `production`). Além disso, páginas estáticas exigem políticas distintas de cache para `index.html` vs. `/assets/*`, validação estrita de `Origin` no CORS e headers defensivos (`CSP`, `X-Frame-Options`, `HSTS`).
 
 ## 2. Decisão
-1. **Injeção de Configuração Pública em Runtime (`P-13`)**:
-   - Criar a entidade `ProjectPublicConfig` (`opspages_public_configs`) por projeto e ambiente.
-   - Expor `/pages/{slug}/env-config.js`, `/pages/{slug}/env-config.json` e `/api/v1/public/projects/{slug}/config`.
-   - Injetar automaticamente `<script src="/pages/{slug}/env-config.js"></script>` e `window.__OPSPAGES_CONFIG__` / `window.__OPSBASE_CONFIG__` no `<head>` do HTML servido.
+1. **Injeção de Configuração Pública em Runtime e Vínculo com Descoberta OpsBase (`P-13`)**:
+   - Criar a entidade `ProjectPublicConfig` (`opspages_public_configs`) por projeto e ambiente (`production`, `staging`, `development`, `preview`), vinculada a um projeto do OpsBase (`opsbase_project_slug`).
+   - Buscar `opsbase_anon_key` e `opsbase_url` (padrão `http://localhost:8001/api/v1` em dev) diretamente no endpoint de descoberta do OpsBase (`/api/v1/projects/by-slug/{slug}/public-config`), rejeitando chaves digitadas manualmente ou placeholders (`HTTP 400`) e bloqueando qualquer chave privilegiada (`service_role_key`, senhas ou URIs de banco).
+   - Validar estritamente o parâmetro `?env=`: ambientes inválidos retornam `400 Bad Request` e ambientes inativos/inexistentes retornam `404 Not Found`, sem cair silenciosamente em `production`.
+   - Suportar atualização imediata sem redeploy do site quando a chave é rotacionada ou revogada no OpsBase, tanto via webhook (`POST /api/v1/webhooks/opsbase/key-event`) quanto via re-sincronização sob demanda (`POST /api/v1/projects/{id}/opsbase/sync`), além de alinhamento automático de origens exatas de CORS (`POST /api/v1/projects/{id}/opsbase/cors-sync`).
+   - Expor `/pages/{slug}/env-config.js`, `/pages/{slug}/env-config.json` e `/api/v1/public/projects/{slug}/config` com `Cache-Control: no-store, no-cache, must-revalidate` e injetar automaticamente `window.__OPSPAGES_CONFIG__` / `window.__OPSBASE_CONFIG__` no `<head>` do HTML servido.
 2. **Cache Diferenciado Configurável por Projeto (`P-1`)**:
    - HTML e `env-config.*`: `no-cache, max-age=0, must-revalidate`.
    - Assets com hash (`/assets/*`): `public, max-age=31536000, immutable`.

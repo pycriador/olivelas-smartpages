@@ -91,6 +91,15 @@ class ProjectCreate(ProjectBase):
     environment: Optional[str] = "production"
     opsbase_project_id: Optional[int] = None
     opsbase_project_slug: Optional[str] = None
+    auto_provision_opsbase: bool = Field(
+        default=False,
+        description=(
+            "If true and no opsbase_project_id/opsbase_project_slug is given, a brand-new "
+            "OpsBase project is auto-created for this Pages project. Defaults to false "
+            "(opt-in) to avoid silently creating orphaned OpsBase projects (P-15) — pass "
+            "opsbase_project_id to link an existing OpsBase project instead."
+        ),
+    )
 
 
 class ProjectUpdate(BaseModel):

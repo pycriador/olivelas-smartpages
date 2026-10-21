@@ -520,10 +520,16 @@ class OpsBaseIntegrationService:
         Never registers wildcard `*` with credentials.
         """
         exact_origins = OpsBaseIntegrationService.compute_project_exact_origins(project)
+        rejected_origins: List[str] = []
         if extra_origins:
             for orig in extra_origins:
                 clean = (orig or "").strip().rstrip("/")
-                if clean and clean != "*" and clean.startswith(("http://", "https://")) and clean not in exact_origins:
+                if not clean:
+                    continue
+                if clean == "*" or not clean.startswith(("http://", "https://")):
+                    rejected_origins.append(orig)
+                    continue
+                if clean not in exact_origins:
                     exact_origins.append(clean)
 
         # 1. Ensure OpsPages local CorsRule table has exact origins and no active wildcard '*'
@@ -587,6 +593,15 @@ class OpsBaseIntegrationService:
                         else:
                             opsbase_allowed_origins = exact_origins
                         opsbase_synced = True
+                        declined_by_opsbase = [
+                            o for o in exact_origins if o not in opsbase_allowed_origins
+                        ]
+                        if declined_by_opsbase:
+                            rejected_origins.extend(declined_by_opsbase)
+                            opsbase_synced = False
+                            sync_error = (
+                                "OpsBase declined to register: " + ", ".join(declined_by_opsbase)
+                            )
                     else:
                         sync_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
             except Exception as exc:
@@ -609,6 +624,7 @@ class OpsBaseIntegrationService:
             "opsbase_project_slug": project.opsbase_project_slug,
             "pages_exact_origins": exact_origins,
             "opsbase_allowed_origins": opsbase_allowed_origins,
+            "rejected_origins": rejected_origins,
             "custom_domain": project.custom_domain,
             "error": sync_error,
             "manual_registration_guide": {
@@ -865,8 +881,56 @@ class OpsBaseIntegrationService:
 
         for proj in matched_projects:
             if is_revoke_event:
-                # Try discovery first in case OpsBase already reflects revoked status;
-                # either way, immediately clear the key across all environments without redeploy.
+                # Never trust the payload alone for a destructive action: re-confirm the
+                # revocation against OpsBase's own discovery endpoint before clearing the
+                # key. A forged event that disagrees with OpsBase's authoritative state
+                # (or that we can't confirm at all) is ignored (P-14).
+                try:
+                    live_discovery = OpsBaseIntegrationService.fetch_discovery_from_opsbase(
+                        project=proj,
+                        opsbase_project_id=proj.opsbase_project_id,
+                        opsbase_project_slug=proj.opsbase_project_slug or proj.slug,
+                        auto_provision_if_missing=False,
+                    )
+                    live_key_status = str(live_discovery.get("key_status") or "active").lower()
+                except Exception as exc:
+                    logger.warning(
+                        f"OpsBase webhook revoke for project {proj.slug}: could not confirm "
+                        f"live key_status via discovery, ignoring revoke event: {exc}"
+                    )
+                    results.append(
+                        {
+                            "project_id": proj.id,
+                            "project_slug": proj.slug,
+                            "opsbase_project_id": proj.opsbase_project_id,
+                            "event": event,
+                            "key_status": proj.opsbase_key_status,
+                            "key_cleared": False,
+                            "redeploy_required": False,
+                            "ignored_reason": "could_not_confirm_via_discovery",
+                        }
+                    )
+                    continue
+
+                if live_key_status == "active":
+                    logger.warning(
+                        f"OpsBase webhook revoke for project {proj.slug}: OpsBase discovery "
+                        "still reports key_status=active, ignoring unconfirmed revoke event."
+                    )
+                    results.append(
+                        {
+                            "project_id": proj.id,
+                            "project_slug": proj.slug,
+                            "opsbase_project_id": proj.opsbase_project_id,
+                            "event": event,
+                            "key_status": proj.opsbase_key_status,
+                            "key_cleared": False,
+                            "redeploy_required": False,
+                            "ignored_reason": "opsbase_reports_key_still_active",
+                        }
+                    )
+                    continue
+
                 proj.opsbase_key_status = "revoked"
                 proj.opsbase_last_synced_at = now
                 configs = (
@@ -980,3 +1044,46 @@ class OpsBaseIntegrationService:
             "projects_updated": len(results),
             "results": results,
         }
+
+    @staticmethod
+    def delete_opsbase_project(
+        project: Project,
+        opsbase_base_url: Optional[str] = None,
+        opsbase_token: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """
+        Deletes the OpsBase project linked to this Pages project. Only ever called when
+        `project.opsbase_auto_provisioned` is true (i.e. OpsPages itself created that
+        OpsBase project with no opt-in from the caller) — never for a project the caller
+        explicitly linked to a pre-existing OpsBase project, which must never be deleted
+        as a side effect of deleting the Pages project (P-15).
+        """
+        if not project.opsbase_project_id:
+            return {"deleted": False, "reason": "no_linked_opsbase_project"}
+
+        base_url = (opsbase_base_url or settings.OPSBASE_BASE_URL or "http://localhost:8001").strip().rstrip("/")
+        if base_url.endswith("/api/v1"):
+            base_url = base_url[: -len("/api/v1")]
+
+        token = OpsBaseIntegrationService._authenticate_opsbase_client(base_url, opsbase_token)
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+
+        try:
+            with httpx.Client(timeout=8.0, trust_env=False) as client:
+                resp = client.delete(
+                    f"{base_url}/api/v1/projects/{project.opsbase_project_id}",
+                    headers=headers,
+                )
+            if resp.status_code in (200, 204, 404):
+                return {"deleted": True, "opsbase_project_id": project.opsbase_project_id}
+            return {
+                "deleted": False,
+                "opsbase_project_id": project.opsbase_project_id,
+                "error": f"HTTP {resp.status_code}: {resp.text[:200]}",
+            }
+        except Exception as exc:
+            logger.warning(
+                f"Failed to delete auto-provisioned OpsBase project {project.opsbase_project_id} "
+                f"for Pages project {project.slug}: {exc}"
+            )
+            return {"deleted": False, "opsbase_project_id": project.opsbase_project_id, "error": str(exc)}

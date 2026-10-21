@@ -194,17 +194,21 @@ export const SettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="opspages-page">
       {/* Header Banner */}
-      <div>
-        <Title level={4} className="flex items-center gap-2 mb-1">
+      <Card
+        variant="borderless"
+        className="shadow-xs border"
+        style={{ borderColor: theme.colorBorder, backgroundColor: theme.bgContainer }}
+      >
+        <Title level={4} className="flex items-center gap-2 mb-1!" style={{ margin: 0 }}>
           <SettingOutlined style={{ color: theme.primary }} />
           <span>Configurações da Plataforma & Projeto</span>
         </Title>
-        <Text type="secondary" className="text-sm">
+        <Text type="secondary" className="text-xs sm:text-sm block mt-1.5">
           Personalize temas visuais (10 Light & 10 Dark), idioma da interface e parâmetros de deploy do projeto ativo.
         </Text>
-      </div>
+      </Card>
 
       {/* Project Configuration Section */}
       {activeProject && (
@@ -223,7 +227,7 @@ export const SettingsPage: React.FC = () => {
           }
         >
           <Form form={form} layout="vertical" onFinish={handleSave}>
-            <Row gutter={16}>
+            <Row gutter={20}>
               <Col xs={24} md={12}>
                 <Form.Item
                   name="name"
@@ -244,7 +248,7 @@ export const SettingsPage: React.FC = () => {
               <Input.TextArea rows={2} />
             </Form.Item>
 
-            <Row gutter={16}>
+            <Row gutter={20}>
               <Col xs={24} md={12}>
                 <Form.Item name="github_repo_url" label="GitHub Repository URL">
                   <Input
@@ -270,10 +274,10 @@ export const SettingsPage: React.FC = () => {
               </Col>
             </Row>
 
-            <Row gutter={[16, 16]}>
+            <Row gutter={[20, 20]}>
               <Col xs={24} md={8}>
                 <div
-                  className="p-3.5 rounded-xl border flex items-start justify-between gap-3 h-full"
+                  className="p-4 rounded-xl border flex items-start justify-between gap-3 h-full"
                   style={{ borderColor: theme.colorBorder }}
                 >
                   <div>
@@ -293,7 +297,7 @@ export const SettingsPage: React.FC = () => {
 
               <Col xs={24} md={8}>
                 <div
-                  className="p-3.5 rounded-xl border flex items-start justify-between gap-3 h-full"
+                  className="p-4 rounded-xl border flex items-start justify-between gap-3 h-full"
                   style={{ borderColor: theme.colorBorder }}
                 >
                   <div>
@@ -310,7 +314,7 @@ export const SettingsPage: React.FC = () => {
 
               <Col xs={24} md={8}>
                 <div
-                  className="p-3.5 rounded-xl border flex items-start justify-between gap-3 h-full"
+                  className="p-4 rounded-xl border flex items-start justify-between gap-3 h-full"
                   style={{ borderColor: theme.colorBorder }}
                 >
                   <div>
@@ -329,7 +333,7 @@ export const SettingsPage: React.FC = () => {
               </Col>
             </Row>
 
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-end pt-5">
               <Button type="primary" htmlType="submit" loading={saving} icon={<SaveOutlined />}>
                 Salvar Configurações do Projeto
               </Button>
@@ -354,7 +358,7 @@ export const SettingsPage: React.FC = () => {
           Selecione o idioma preferido para menus, botões, tabelas e mensagens do sistema.
         </Paragraph>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {languageOptions.map((opt) => {
             const isSelected = locale === opt.key;
             return (

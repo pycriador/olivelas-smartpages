@@ -160,6 +160,7 @@ class Project(Base):
     opsbase_key_prefix: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
     opsbase_cors_synced: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     opsbase_allowed_origins_json: Mapped[str] = mapped_column(Text, default="[]", nullable=False)
+    opsbase_auto_provisioned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_by: Mapped[Optional[int]] = mapped_column(ForeignKey("opspages_users.id", ondelete="SET NULL"), nullable=True)

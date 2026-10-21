@@ -5,7 +5,7 @@ owner: "aiops-platform-team"
 created: "2026-10-20"
 updated: "2026-10-20"
 review_date: "2027-01-20"
-version: "1.1"
+version: "1.2"
 ---
 
 > Language: pt-BR
@@ -22,7 +22,24 @@ O console web do **AIOps OpsPages** é uma SPA em **React 18 + TypeScript + Vite
 
 ---
 
-## 2. Roteamento por URL e Paginação Sincronizada (`Confirmed`)
+## 2. Arquitetura de Navegação Lateral Fixa, Grupos Retráteis e Layout Unlayered (`Confirmed`)
+
+Implementada em [`frontend/src/components/layout/AppLayout.tsx`](../../frontend/src/components/layout/AppLayout.tsx) e [`frontend/src/index.css`](../../frontend/src/index.css):
+
+1. **Menu Lateral Fixo com Rolagem Independente (`Sider`)**:
+   - Largura fixa de `268px` (`collapsed={false}`), posicionamento `sticky` (`top: 0`, `height: 100vh`) e área interna rolável (`.opspages-sidebar-scroll`) que preserva o cabeçalho da marca e o rodapé da versão visíveis mesmo com todos os submenus abertos.
+   - A barra superior (`Header`) foi simplificada, removendo o botão de recolhimento do menu lateral para priorizar o seletor de projeto, indicadores de porta/ambiente, atalhos rápidos (`Public Config`, `Reportar Erro`, `Abrir Site`) e perfil HBAC.
+2. **Organização em 4 Grupos Funcionais (`SubMenu` Retráteis)**:
+   - **Publicação & Git**: `Projetos & Visão Geral` (`/dashboard`), `Deployments & Rollback` (`/deployments`), `File Explorer (Builds)` (`/explorer`), `Git & Diff Viewer` (`/git`).
+   - **Integração & Rede**: `Public Config (OpsBase)` (`/public-config`), `CORS & Origens` (`/cors`), `Quotas & Storage` (`/quotas`).
+   - **Segurança & Acesso**: `IAM & Grupos HBAC` (`/iam`), `Tokens & API Keys` (`/tokens`).
+   - **Governança & Sistema**: `Auditoria Forense` (`/audit`), `Central de Erros` (`/errors`), `Configurações` (`/settings`).
+3. **Sistema de Espaçamento Vertical Unlayered (`.opspages-page`)**:
+   - Para evitar que os resets CSS *unlayered* do Ant Design v5 anulem utilitários `@layer utilities` do Tailwind CSS v4, todas as 12 páginas utilizam o container `.opspages-page` (`display: flex; flex-direction: column; gap: 24px`) combinado com regras *unlayered* em [`frontend/src/index.css`](../../frontend/src/index.css), garantindo espaçamento consistente entre alertas, cards de KPI, barras de filtro e tabelas.
+
+---
+
+## 3. Roteamento por URL e Paginação Sincronizada (`Confirmed`)
 
 Gerenciado por [`frontend/src/utils/urlState.ts`](../../frontend/src/utils/urlState.ts) e [`frontend/src/stores/useProjectStore.ts`](../../frontend/src/stores/useProjectStore.ts):
 

@@ -508,59 +508,69 @@ code { color: #FF774A; }
   });
 
   return (
-    <div className="space-y-5">
+    <div className="opspages-page">
       <Card>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold m-0 flex items-center gap-2">
-              <BranchesOutlined className="text-[#FF774A]" />
-              Gerenciador de Builds Estáticas & Releases (/repos/{activeProject.slug})
-            </h3>
-            <p className="text-xs text-slate-400 m-0 mt-1">
-              Suba pacotes <code>.zip</code> / <code>.tar.gz</code>, gere builds pelo Editor Web (com suporte a binários Base64 • P-12) ou
-              automatize via API CI/CD. Previews de versões pendentes são protegidos por autenticação (P-4).
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold m-0 flex items-center gap-2">
+                <BranchesOutlined className="text-[#FF774A]" />
+                Gerenciador de Builds Estáticas & Releases (/repos/{activeProject.slug})
+              </h3>
+              <p className="text-xs text-slate-400 m-0 mt-1.5">
+                Suba pacotes <code>.zip</code> / <code>.tar.gz</code>, gere builds pelo Editor Web (com suporte a binários Base64 • P-12) ou
+                automatize via API CI/CD. Previews de versões pendentes são protegidos por autenticação (P-4).
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <Button icon={<CodeOutlined />} onClick={openQuickBuilderWithTemplate}>
+                Editor Rápido HTML/CSS/JS
+              </Button>
+              <Button
+                type="primary"
+                icon={<CloudUploadOutlined />}
+                onClick={() => {
+                  loadNextVersion();
+                  setUploadModalOpen(true);
+                }}
+              >
+                Upload de Build (.zip / .tar.gz)
+              </Button>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              prefix={<SearchOutlined className="text-slate-400" />}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Filtrar versão, commit ou nota..."
-              className="w-56"
-              allowClear
-            />
-            <Select
-              value={status}
-              onChange={(val) => setStatus(val)}
-              className="w-44"
-              options={[
-                { value: 'all', label: 'Todos os Status' },
-                { value: 'published', label: 'Publicada (Live)' },
-                { value: 'pending_approval', label: 'Aguardando Aprovação' },
-                { value: 'ready', label: 'Pronta (Rollback)' },
-                { value: 'rolled_back', label: 'Rolled Back' },
-              ]}
-            />
-            <Button icon={<CodeOutlined />} onClick={openQuickBuilderWithTemplate}>
-              Editor Rápido HTML/CSS/JS
-            </Button>
-            <Button
-              type="primary"
-              icon={<CloudUploadOutlined />}
-              onClick={() => {
-                loadNextVersion();
-                setUploadModalOpen(true);
-              }}
-            >
-              Upload de Build (.zip / .tar.gz)
-            </Button>
+          <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Input
+                prefix={<SearchOutlined className="text-slate-400" />}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Filtrar versão, commit ou nota..."
+                className="w-64"
+                allowClear
+              />
+              <Select
+                value={status}
+                onChange={(val) => setStatus(val)}
+                className="w-48"
+                options={[
+                  { value: 'all', label: 'Todos os Status' },
+                  { value: 'published', label: 'Publicada (Live)' },
+                  { value: 'pending_approval', label: 'Aguardando Aprovação' },
+                  { value: 'ready', label: 'Pronta (Rollback)' },
+                  { value: 'rolled_back', label: 'Rolled Back' },
+                ]}
+              />
+            </div>
+            <span className="text-xs text-slate-400">
+              Exibindo <strong>{filteredDeployments.length}</strong> de {deployments.length} releases
+            </span>
           </div>
         </div>
       </Card>
 
-      <Card bodyStyle={{ padding: 0 }}>
+      <Card styles={{ body: { padding: 0 } }}>
         <Table
           rowKey="id"
           dataSource={filteredDeployments}

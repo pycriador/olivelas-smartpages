@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import logging
 import secrets
+from datetime import timezone
 from typing import Any, Dict, List, Optional
 from fastapi import Request
 from sqlalchemy import desc, func
@@ -43,7 +44,7 @@ from app.services.auth_service import invalidate_auth_cache
 from app.services.deployment_service import DeploymentService
 from app.services.git_storage_service import GitStorageService
 from app.services.hbac_service import HBACService
-from app.services.opsbase_service import OpsBaseIntegrationService, VALID_PUBLIC_CONFIG_ENVIRONMENTS
+from app.services.opsbase_service import OpsBaseIntegrationService, VALID_PUBLIC_CONFIG_ENVIRONMENTS, utc_now
 
 logger = logging.getLogger("aiops.opspages.project")
 
@@ -323,6 +324,11 @@ class ProjectService:
         db.refresh(project)
 
         # Link project & discover public anon key + URL + align CORS in OpsBase (Part 2)
+        # Only auto-provisions a brand-new OpsBase project when no existing project was
+        # named by the caller AND auto_provision_opsbase was explicitly opted into (P-15).
+        project.opsbase_auto_provisioned = bool(
+            req.auto_provision_opsbase and not req.opsbase_project_id and not req.opsbase_project_slug
+        )
         try:
             OpsBaseIntegrationService.link_or_sync_project(
                 db=db,
@@ -331,7 +337,7 @@ class ProjectService:
                 opsbase_project_slug=req.opsbase_project_slug or project.slug,
                 actor_id=actor.id,
                 actor_email=actor.email,
-                auto_provision_if_missing=True,
+                auto_provision_if_missing=req.auto_provision_opsbase,
                 sync_cors=True,
             )
         except Exception as link_exc:
@@ -551,10 +557,29 @@ class ProjectService:
         return project
 
     @classmethod
-    def delete_project(cls, db: Session, project: Project, actor: User) -> Dict[str, Any]:
+    def delete_project(
+        cls, db: Session, project: Project, actor: User, cleanup_opsbase: bool = False
+    ) -> Dict[str, Any]:
         slug = project.slug
         project_id = project.id
         project_name = project.name
+        opsbase_project_id = project.opsbase_project_id
+        opsbase_auto_provisioned = project.opsbase_auto_provisioned
+
+        opsbase_cleanup_result: Optional[Dict[str, Any]] = None
+        if opsbase_project_id:
+            if cleanup_opsbase and opsbase_auto_provisioned:
+                opsbase_cleanup_result = OpsBaseIntegrationService.delete_opsbase_project(project)
+            else:
+                opsbase_cleanup_result = {
+                    "deleted": False,
+                    "opsbase_project_id": opsbase_project_id,
+                    "reason": (
+                        "cleanup_opsbase not requested"
+                        if not cleanup_opsbase
+                        else "project was linked to a pre-existing OpsBase project, not auto-provisioned"
+                    ),
+                }
 
         GitStorageService.delete_project_repo(slug)
         db.delete(project)
@@ -569,9 +594,19 @@ class ProjectService:
             resource_type="project",
             resource_id=str(project_id),
             project_id=project_id,
-            diff={"deleted_project": project_name, "deleted_repo": f"/repos/{slug}"},
+            diff={
+                "deleted_project": project_name,
+                "deleted_repo": f"/repos/{slug}",
+                "opsbase_unlinked": bool(opsbase_project_id),
+                "opsbase_cleanup": opsbase_cleanup_result,
+            },
         )
-        return {"deleted_slug": slug, "deleted_repo": f"/repos/{slug}"}
+        return {
+            "deleted_slug": slug,
+            "deleted_repo": f"/repos/{slug}",
+            "opsbase_unlinked": bool(opsbase_project_id),
+            "opsbase_cleanup": opsbase_cleanup_result,
+        }
 
     @classmethod
     def add_permission(
@@ -1094,6 +1129,49 @@ jobs:
         return cls.serialize_public_config(project, cfg)
 
     @classmethod
+    def _refresh_public_config_if_stale(
+        cls, db: Session, project: Project, cfg: "ProjectPublicConfig"
+    ) -> "ProjectPublicConfig":
+        """
+        Opportunistically re-syncs the cached public config from OpsBase's discovery
+        endpoint when it's older than OPSBASE_PUBLIC_CONFIG_SYNC_TTL_SECONDS, so a key
+        rotated on the OpsBase side (without OpsPages ever receiving a webhook call)
+        doesn't keep serving a stale key indefinitely (P-13d). Best-effort: any failure
+        (OpsBase unreachable, project unlinked) falls back to serving the cached config.
+        """
+        if not project.opsbase_project_id:
+            return cfg
+
+        ttl_seconds = max(0, settings.OPSBASE_PUBLIC_CONFIG_SYNC_TTL_SECONDS)
+        last_synced = cfg.last_synced_at
+        if last_synced is not None:
+            if last_synced.tzinfo is None:
+                last_synced = last_synced.replace(tzinfo=timezone.utc)
+            age_seconds = (utc_now() - last_synced).total_seconds()
+            if age_seconds < ttl_seconds:
+                return cfg
+
+        try:
+            OpsBaseIntegrationService.link_or_sync_project(
+                db=db,
+                project=project,
+                opsbase_project_id=project.opsbase_project_id,
+                opsbase_project_slug=project.opsbase_project_slug or project.slug,
+                actor_email="auto-sync@opspages",
+                auto_provision_if_missing=False,
+                sync_cors=False,
+            )
+        except Exception as exc:
+            logger.warning(
+                f"Opportunistic OpsBase config re-sync failed for project {project.slug} "
+                f"(serving cached config): {exc}"
+            )
+            return cfg
+
+        db.refresh(cfg)
+        return cfg
+
+    @classmethod
     def build_runtime_config_payload(
         cls,
         db: Session,
@@ -1102,6 +1180,7 @@ jobs:
         version_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         cfg = cls.get_public_config_by_env(db, project, environment)
+        cfg = cls._refresh_public_config_if_stale(db, project, cfg)
         scopes_list = [s.strip() for s in (cfg.scopes or "").split(",") if s.strip()]
         custom_vars = OpsBaseIntegrationService.validate_and_sanitize_public_vars(
             cfg.get_public_vars(), strict_raise=False

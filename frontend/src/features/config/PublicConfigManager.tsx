@@ -237,32 +237,34 @@ export const PublicConfigManager: React.FC = () => {
   const currentCfg = configs.find((c) => c.environment === selectedEnv);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <ApiOutlined className="text-[#FF774A]" />
-            Credenciais Públicas (Opsbase Runtime • P-13) & Segurança/Cache (P-1, P-2)
-          </h2>
-          <p className="text-xs text-theme-muted mt-0.5">
-            Injeção automática de configuração pública por ambiente (<code>window.__OPSPAGES_CONFIG__</code> e{' '}
-            <code>/pages/{activeProject.slug}/env-config.js</code>) sem gravar chaves sensíveis no bundle estático.
-          </p>
-        </div>
+    <div className="opspages-page">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold m-0 flex items-center gap-2">
+              <ApiOutlined className="text-[#FF774A]" />
+              Credenciais Públicas (Opsbase Runtime • P-13) & Segurança/Cache (P-1, P-2)
+            </h3>
+            <p className="text-xs text-slate-400 m-0 mt-1.5">
+              Injeção automática de configuração pública por ambiente (<code>window.__OPSPAGES_CONFIG__</code> e{' '}
+              <code>/pages/{activeProject.slug}/env-config.js</code>) sem gravar chaves sensíveis no bundle estático.
+            </p>
+          </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            icon={<CodeOutlined />}
-            href={`/pages/${activeProject.slug}/env-config.js`}
-            target="_blank"
-          >
-            Ver env-config.js
-          </Button>
-          <Button icon={<ReloadOutlined spin={loading} />} onClick={loadConfigs}>
-            Atualizar
-          </Button>
+          <div className="flex items-center gap-2.5">
+            <Button
+              icon={<CodeOutlined />}
+              href={`/pages/${activeProject.slug}/env-config.js`}
+              target="_blank"
+            >
+              Ver env-config.js
+            </Button>
+            <Button icon={<ReloadOutlined spin={loading} />} onClick={loadConfigs}>
+              Atualizar
+            </Button>
+          </div>
         </div>
-      </div>
+      </Card>
 
       <Tabs
         defaultActiveKey="public-config"
@@ -276,13 +278,13 @@ export const PublicConfigManager: React.FC = () => {
               </span>
             ),
             children: (
-              <div className="space-y-4">
+              <div className="flex flex-col gap-6">
                 <Alert
                   type="info"
                   showIcon
                   message="Vínculo com AIOps OpsBase Discovery & Entrega Runtime no-cache (P-13)"
                   description={
-                    <div className="text-xs space-y-1 mt-1">
+                    <div className="text-xs flex flex-col gap-1.5 mt-1">
                       <div>
                         1. Cada projeto do OpsPages é vinculado ao OpsBase via endpoint de descoberta{' '}
                         <code>/api/v1/projects/by-slug/&#123;slug&#125;/public-config</code>. Não aceita chave digitada manualmente nem placeholder.
@@ -301,9 +303,9 @@ export const PublicConfigManager: React.FC = () => {
                 />
 
                 <Card className="border-theme">
-                  <div className="flex flex-wrap items-center justify-between gap-3 mb-4 pb-3 border-b border-white/10">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold uppercase text-slate-400">
+                  <div className="flex flex-wrap items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-200/70 dark:border-slate-800">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs font-semibold uppercase text-slate-400 mr-1">
                         Ambiente Selecionado:
                       </span>
                       {(['production', 'staging', 'development', 'preview'] as const).map((env) => (
@@ -355,7 +357,7 @@ export const PublicConfigManager: React.FC = () => {
                   </div>
 
                   <Form form={envForm} layout="vertical">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       <Form.Item
                         label="URL do AIOps OpsBase (por Ambiente)"
                         name="opsbase_url"

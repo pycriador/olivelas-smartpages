@@ -71,10 +71,13 @@ Todos os endpoints são servidos pelo Backend FastAPI na porta `8005` e document
 
 | Método | Rota | Papel Mínimo | Descrição | Códigos HTTP |
 | :---: | :--- | :---: | :--- | :---: |
-| `GET` | `/api/v1/public/projects/{slug}/config` | Público* | Retorna a configuração pública e credenciais `opsbase_anon_key` por `env` (`P-13`) | `200`, `404` |
+| `GET` | `/api/v1/public/projects/{slug}/config` | Público* | Retorna a configuração pública e credenciais `opsbase_anon_key` por `?env=` (`400` se `env` inválido, `404` se inativo — sem fallback silencioso) (`P-13`) | `200`, `400`, `404` |
 | `GET` | `/api/v1/projects/{id}/public-config` | `viewer` | Lista configurações públicas de todos os ambientes do projeto (`P-13`) | `200` |
-| `PUT` | `/api/v1/projects/{id}/public-config/{env}` | `editor` | Cria ou atualiza configuração pública (`production`, `staging`, `development`, `preview`) | `200`, `422` |
+| `PUT` | `/api/v1/projects/{id}/public-config/{env}` | `editor` | Sincroniza e atualiza configuração pública (`production`, `staging`, `development`, `preview`) via descoberta no OpsBase (rejeita `opsbase_anon_key` manual com `400`) | `200`, `400`, `422` |
 | `DELETE` | `/api/v1/projects/{id}/public-config/{env}` | `admin` | Remove configuração pública de um ambiente | `200`, `404` |
+| `POST` | `/api/v1/projects/{id}/opsbase/sync` | `editor` | Re-sincroniza sob demanda a chave pública e URL do projeto junto ao endpoint de descoberta do OpsBase (`http://localhost:8001/api/v1`) sem redeploy | `200`, `400`, `502` |
+| `POST` | `/api/v1/projects/{id}/opsbase/cors-sync` | `editor` | Alinha automaticamente as origens exatas do projeto (incluindo `custom_domain`) na allowlist de CORS do OpsPages e do OpsBase | `200`, `400` |
+| `POST` | `/api/v1/webhooks/opsbase/key-event` | Webhook Secret | Recebe eventos de rotação ou revogação de chave (`key.rotated`, `key.revoked`) do OpsBase e atualiza a config pública em runtime sem redeploy | `200`, `401`, `404` |
 | `GET` | `/api/v1/projects/{id}/cors` | `viewer` | Lista regras de CORS do projeto | `200` |
 | `POST` | `/api/v1/projects/{id}/cors` | `admin` | Cria regra CORS validando sintaxe de origem e proibindo `*` com credenciais (`P-9`) | `201`, `422` |
 | `DELETE` | `/api/v1/projects/{id}/cors/{rule_id}` | `admin` | Remove regra de CORS | `200` |

@@ -86,12 +86,20 @@ def lock_or_unlock_project_version(
 
 @router.delete("/{project_id}", status_code=status.HTTP_200_OK)
 def delete_project(
+    cleanup_opsbase: bool = Query(
+        default=False,
+        description=(
+            "If true, also deletes the linked OpsBase project — but only when it was "
+            "auto-provisioned by OpsPages itself. A pre-existing OpsBase project the "
+            "caller explicitly linked to is never deleted, regardless of this flag (P-15)."
+        ),
+    ),
     project: Project = Depends(require_project_role("admin")),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_meta_db),
 ) -> Dict[str, Any]:
     project_name = project.name
-    res = ProjectService.delete_project(db, project, current_user)
+    res = ProjectService.delete_project(db, project, current_user, cleanup_opsbase=cleanup_opsbase)
     return {
         "success": True,
         "message": f"Project '{project_name}' and repository '{res['deleted_repo']}' deleted successfully.",

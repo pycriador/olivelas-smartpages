@@ -122,6 +122,7 @@ def _ensure_schema_columns() -> None:
         ("opsbase_key_prefix", "VARCHAR(80)"),
         ("opsbase_cors_synced", "BOOLEAN NOT NULL DEFAULT 0"),
         ("opsbase_allowed_origins_json", "TEXT NOT NULL DEFAULT '[]'"),
+        ("opsbase_auto_provisioned", "BOOLEAN NOT NULL DEFAULT 0"),
     ]
 
     cors_migrations = [

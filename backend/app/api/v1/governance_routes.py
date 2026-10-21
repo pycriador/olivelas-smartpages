@@ -3,13 +3,15 @@ API Tokens, Quotas, CORS, and Audit Endpoints for AIOps OpsPages.
 """
 from __future__ import annotations
 
+import hmac
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
-from app.core.errors import NotFoundError
+from app.core.config import settings
+from app.core.errors import AuthenticationError, NotFoundError
 from app.db.session import get_meta_db
 from app.models.meta_models import ErrorReport, Project, User
 from app.schemas.api_token import TokenCreatedResponse, TokenCreateRequest, TokenResponse
@@ -253,6 +255,25 @@ def get_public_project_runtime_config(
 webhooks_router = APIRouter(prefix="/webhooks", tags=["OpsBase Integration Webhooks (Part 2)"])
 
 
+def verify_opsbase_webhook_secret(request: Request) -> None:
+    """
+    Requires the shared webhook secret (OPSBASE_WEBHOOK_SECRET) on every call to the
+    OpsBase webhook endpoints, so a forged key.revoked/key.rotated event from an
+    unauthenticated caller cannot alter a project's public config (P-14).
+    """
+    provided = request.headers.get("X-Opsbase-Webhook-Secret") or ""
+    auth_header = request.headers.get("Authorization") or ""
+    if not provided and auth_header.lower().startswith("bearer "):
+        provided = auth_header[7:].strip()
+
+    expected = settings.OPSBASE_WEBHOOK_SECRET or ""
+    if not expected or not provided or not hmac.compare_digest(provided, expected):
+        raise AuthenticationError(
+            "Invalid or missing OpsBase webhook secret. Send it via the "
+            "'X-Opsbase-Webhook-Secret' header."
+        )
+
+
 @webhooks_router.post(
     "/opsbase",
     summary="Receive OpsBase Key Rotation / Revocation Webhook without Redeploying Sites (Part 2)",
@@ -265,6 +286,7 @@ def receive_opsbase_webhook(
     request: Request,
     payload: OpsBaseWebhookRequest,
     db: Session = Depends(get_meta_db),
+    _auth: None = Depends(verify_opsbase_webhook_secret),
 ) -> Dict[str, Any]:
     ip_addr = request.client.host if request.client else None
     return OpsBaseIntegrationService.handle_opsbase_webhook(

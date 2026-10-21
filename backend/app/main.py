@@ -291,11 +291,16 @@ def get_public_overview(request: Request, db: Session = Depends(get_meta_db)):
 
         try:
             raw_git = GitStorageService.get_repo_status(featured, limit=10).model_dump()
-            # Redact internal filesystem path and commit author emails when unauthenticated (P-11)
+            # Redact internal filesystem path, commit author identity/sha, and head sha
+            # when unauthenticated — git history/authorship is not public data (P-11).
             if not is_authenticated:
                 raw_git.pop("repo_path", None)
+                raw_git.pop("head_sha", None)
                 for c in raw_git.get("commits", []):
                     c.pop("author_email", None)
+                    c.pop("author_name", None)
+                    c.pop("sha", None)
+                    c.pop("short_sha", None)
             git_st = raw_git
         except Exception:
             git_st = {"initialized": False, "branch": "main", "head_sha": None, "total_commits": 0, "tags": [], "commits": []}
@@ -305,17 +310,17 @@ def get_public_overview(request: Request, db: Session = Depends(get_meta_db)):
             dep_item: Dict[str, Any] = {
                 "id": d.id,
                 "version": d.version,
-                "git_commit_sha": d.git_commit_sha,
                 "git_tag": d.git_tag,
                 "status": d.status,
                 "source": d.source,
                 "file_count": d.file_count,
                 "size_bytes": d.size_bytes,
-                "release_notes": d.release_notes,
                 "created_at": d.created_at.isoformat() if d.created_at else None,
                 "preview_url": f"/pages/{featured.slug}/v/{d.version}/",
             }
             if is_authenticated:
+                dep_item["git_commit_sha"] = d.git_commit_sha
+                dep_item["release_notes"] = d.release_notes
                 dep_item["deployed_by_email"] = d.created_by_email
                 dep_item["created_by_email"] = d.created_by_email
                 dep_item["approved_by_email"] = d.approved_by_email

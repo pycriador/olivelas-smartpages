@@ -46,45 +46,47 @@ export const AuditViewer: React.FC = () => {
   }, [projectOnly, activeProject?.id, search]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <SafetyCertificateOutlined className="text-[#FF774A]" />
-            Trilha de Auditoria Forense (Imutável • {total} eventos)
-          </h2>
-          <p className="text-xs text-theme-muted mt-0.5">
-            Rastreabilidade completa de uploads de builds, aprovações, rollbacks, travas de versão (Lock), tokens e alterações HBAC.
-          </p>
-        </div>
+    <div className="opspages-page">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold m-0 flex items-center gap-2">
+              <SafetyCertificateOutlined className="text-[#FF774A]" />
+              Trilha de Auditoria Forense (Imutável • {total} eventos)
+            </h3>
+            <p className="text-xs text-slate-400 m-0 mt-1.5">
+              Rastreabilidade completa de uploads de builds, aprovações, rollbacks, travas de versão (Lock), tokens e alterações HBAC.
+            </p>
+          </div>
 
-        <div className="flex items-center gap-3 flex-wrap">
-          <Input
-            prefix={<SearchOutlined className="text-slate-400" />}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onPressEnter={loadLogs}
-            placeholder="Filtrar ação (ex: deployment.upload)"
-            className="w-64"
-            allowClear
-          />
-          {activeProject && (
-            <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-theme">
-              <Switch
-                size="small"
-                checked={projectOnly}
-                onChange={(checked) => setExtra('scope', checked ? 'project' : 'all')}
-              />
-              <span>Apenas {activeProject.slug}</span>
-            </div>
-          )}
-          <Button icon={<ReloadOutlined spin={loading} />} onClick={loadLogs}>
-            Atualizar
-          </Button>
+          <div className="flex items-center gap-3 flex-wrap">
+            <Input
+              prefix={<SearchOutlined className="text-slate-400" />}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onPressEnter={loadLogs}
+              placeholder="Filtrar ação (ex: deployment.upload)"
+              className="w-64"
+              allowClear
+            />
+            {activeProject && (
+              <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-slate-500/5 border border-theme">
+                <Switch
+                  size="small"
+                  checked={projectOnly}
+                  onChange={(checked) => setExtra('scope', checked ? 'project' : 'all')}
+                />
+                <span>Apenas {activeProject.slug}</span>
+              </div>
+            )}
+            <Button icon={<ReloadOutlined spin={loading} />} onClick={loadLogs}>
+              Atualizar
+            </Button>
+          </div>
         </div>
-      </div>
+      </Card>
 
-      <Card className="border-theme">
+      <Card className="border-theme" styles={{ body: { padding: 0 } }}>
         <Table
           rowKey="id"
           loading={loading}

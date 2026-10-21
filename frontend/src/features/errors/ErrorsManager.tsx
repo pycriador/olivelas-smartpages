@@ -227,7 +227,7 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
   const resolvedCount = items.filter((i) => i.status === 'resolved').length;
 
   return (
-    <div className={standalone ? 'min-h-screen bg-[#0D1117] text-white p-6 md:p-10' : 'space-y-6'}>
+    <div className={standalone ? 'min-h-screen bg-[#0D1117] text-white p-6 md:p-10' : 'opspages-page'}>
       {standalone && (
         <div className="max-w-7xl mx-auto mb-6 flex items-center justify-between border-b border-white/10 pb-4">
           <div className="flex items-center gap-3">
@@ -255,101 +255,103 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
         </div>
       )}
 
-      <div className={standalone ? 'max-w-7xl mx-auto space-y-6' : 'space-y-6'}>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold flex items-center gap-2">
-              <BugOutlined className="text-[#FF774A]" />
-              Central de Erros & Diagnóstico de Rotas ({total} ocorrências)
-            </h2>
-            <p className="text-xs text-theme-muted mt-0.5">
-              Rota dedicada (<code>/errors</code> e <code>POST /api/v1/errors/report</code>) para informar e auditar erros de páginas, CORS, cache, preview e integrações Opsbase.
-            </p>
-          </div>
+      <div className={standalone ? 'max-w-7xl mx-auto opspages-page' : 'opspages-page'}>
+        <Card className="border-theme">
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold m-0 flex items-center gap-2">
+                  <BugOutlined className="text-[#FF774A]" />
+                  Central de Erros & Diagnóstico de Rotas ({total} ocorrências)
+                </h3>
+                <p className="text-xs text-slate-400 m-0 mt-1.5">
+                  Rota dedicada (<code>/errors</code> e <code>POST /api/v1/errors/report</code>) para informar e auditar erros de páginas, CORS, cache, preview e integrações Opsbase.
+                </p>
+              </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge count={openCount} offset={[-4, 4]} color="#f5222d">
-              <Tag color="red" className="px-2.5 py-1 text-xs">
-                Em Aberto / Análise: {openCount}
-              </Tag>
-            </Badge>
-            <Tag color="green" className="px-2.5 py-1 text-xs">
-              Corrigidos / Verificados: {resolvedCount}
-            </Tag>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleOpenReportModal}
-            >
-              Informar Erro por Aqui
-            </Button>
-          </div>
-        </div>
-
-        {/* Filter & URL Pagination Bar */}
-        <Card className="border-theme" size="small">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <Input
-                prefix={<SearchOutlined className="text-slate-400" />}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Filtrar por código (ex: P-13), URL, rota ou mensagem..."
-                className="w-72"
-                allowClear
-              />
-              <Select
-                value={status}
-                onChange={(val) => setStatus(val)}
-                className="w-40"
-                options={[
-                  { value: 'all', label: 'Todos os Status' },
-                  { value: 'open', label: 'Abertos' },
-                  { value: 'investigating', label: 'Em Análise' },
-                  { value: 'resolved', label: 'Resolvidos' },
-                  { value: 'ignored', label: 'Ignorados' },
-                ]}
-              />
-              <Select
-                value={severityFilter}
-                onChange={(val) => setExtra('severity', val)}
-                className="w-40"
-                options={[
-                  { value: 'all', label: 'Todas Severidades' },
-                  { value: 'critical', label: 'Crítico' },
-                  { value: 'error', label: 'Erro' },
-                  { value: 'warning', label: 'Alerta' },
-                  { value: 'info', label: 'Info' },
-                ]}
-              />
-              {activeProject && (
-                <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-theme">
-                  <Switch
-                    size="small"
-                    checked={projectOnly}
-                    onChange={(checked) => setExtra('scope', checked ? 'project' : 'all')}
-                  />
-                  <span>Apenas {activeProject.slug}</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <Badge count={openCount} offset={[-4, 4]} color="#f5222d">
+                  <Tag color="red" className="px-2.5 py-1 text-xs m-0">
+                    Em Aberto / Análise: {openCount}
+                  </Tag>
+                </Badge>
+                <Tag color="green" className="px-2.5 py-1 text-xs m-0">
+                  Corrigidos / Verificados: {resolvedCount}
+                </Tag>
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={handleOpenReportModal}
+                >
+                  Informar Erro por Aqui
+                </Button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Button size="small" onClick={resetFilters}>
-                Limpar Filtros
-              </Button>
-              <Button
-                size="small"
-                icon={<ReloadOutlined spin={loading} />}
-                onClick={loadErrors}
-              >
-                Atualizar
-              </Button>
+            {/* Filter & URL Pagination Bar */}
+            <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <Input
+                  prefix={<SearchOutlined className="text-slate-400" />}
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Filtrar por código (ex: P-13), URL, rota ou mensagem..."
+                  className="w-72"
+                  allowClear
+                />
+                <Select
+                  value={status}
+                  onChange={(val) => setStatus(val)}
+                  className="w-40"
+                  options={[
+                    { value: 'all', label: 'Todos os Status' },
+                    { value: 'open', label: 'Abertos' },
+                    { value: 'investigating', label: 'Em Análise' },
+                    { value: 'resolved', label: 'Resolvidos' },
+                    { value: 'ignored', label: 'Ignorados' },
+                  ]}
+                />
+                <Select
+                  value={severityFilter}
+                  onChange={(val) => setExtra('severity', val)}
+                  className="w-40"
+                  options={[
+                    { value: 'all', label: 'Todas Severidades' },
+                    { value: 'critical', label: 'Crítico' },
+                    { value: 'error', label: 'Erro' },
+                    { value: 'warning', label: 'Alerta' },
+                    { value: 'info', label: 'Info' },
+                  ]}
+                />
+                {activeProject && (
+                  <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg bg-slate-500/5 border border-theme">
+                    <Switch
+                      size="small"
+                      checked={projectOnly}
+                      onChange={(checked) => setExtra('scope', checked ? 'project' : 'all')}
+                    />
+                    <span>Apenas {activeProject.slug}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button size="small" onClick={resetFilters}>
+                  Limpar Filtros
+                </Button>
+                <Button
+                  size="small"
+                  icon={<ReloadOutlined spin={loading} />}
+                  onClick={loadErrors}
+                >
+                  Atualizar
+                </Button>
+              </div>
             </div>
           </div>
         </Card>
 
-        <Card className="border-theme">
+        <Card className="border-theme" styles={{ body: { padding: 0 } }}>
           <Table
             rowKey="id"
             loading={loading}

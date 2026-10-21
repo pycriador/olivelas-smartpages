@@ -36,6 +36,8 @@ Este documento é o **ponto de entrada obrigatório (Level 0)** para qualquer ag
 | Caminho no Repositório | Papel Técnico |
 | :--- | :--- |
 | `backend/app/main.py` | Ponto de entrada FastAPI, middlewares de segurança (`P-8`, `P-10`), injeção de config pública (`P-13`), servidor estático `/pages/{slug}` (`P-1` a `P-7`, `P-9`) |
+| `backend/app/services/opsbase_service.py` | Cliente de descoberta OpsBase (`http://localhost:8001/api/v1`), validação de chave pública (`anon_key`), sincronização de rotação/revogação sem redeploy e alinhamento de origens CORS |
+| `backend/app/api/v1/governance_routes.py` | Rotas de governança, configuração pública por ambiente (`?env=` estrito), webhook `/webhooks/opsbase/key-event`, `/opsbase/sync` e `/opsbase/cors-sync` |
 | `backend/app/api/v1/routes.py` | Todos os endpoints REST sob `/api/v1` (auth, overview, projects, deployments, git, tokens, iam, quotas, cors, public-config, audit, errors) |
 | `backend/app/api/deps.py` | Dependências de autenticação JWT e API Keys via header (`Authorization`, `X-API-Key`, `apikey`) e rejeição de `?token=` na URL (`P-8`) |
 | `backend/app/models/meta_models.py` | Modelos ORM SQLAlchemy 2.0 (`User`, `Group`, `Project`, `ProjectPermission`, `Deployment`, `ApiToken`, `CorsRule`, `ProjectPublicConfig`, `ErrorReport`, `AuditLog`) |

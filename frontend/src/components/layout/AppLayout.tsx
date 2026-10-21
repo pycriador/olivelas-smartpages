@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Layout, Menu, Button, Dropdown, Avatar, Tag, Drawer, Tooltip } from 'antd';
+import { Layout, Menu, Button, Dropdown, Avatar, Tooltip } from 'antd';
 import {
   DashboardOutlined,
   RocketOutlined,
@@ -14,7 +14,6 @@ import {
   PlusOutlined,
   LogoutOutlined,
   CheckCircleFilled,
-  MenuOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   SettingOutlined,
@@ -46,6 +45,23 @@ import { CreateProjectModal } from '../../features/projects/CreateProjectModal';
 
 const { Header, Sider, Content } = Layout;
 
+const ALL_GROUP_KEYS = ['grp-hosting', 'grp-integration', 'grp-security', 'grp-operations'] as const;
+
+const SECTION_TO_GROUP: Record<NavSection, string> = {
+  dashboard: 'grp-hosting',
+  deployments: 'grp-hosting',
+  explorer: 'grp-hosting',
+  git: 'grp-hosting',
+  'public-config': 'grp-integration',
+  cors: 'grp-integration',
+  quotas: 'grp-integration',
+  iam: 'grp-security',
+  tokens: 'grp-security',
+  audit: 'grp-operations',
+  errors: 'grp-operations',
+  settings: 'grp-operations',
+};
+
 export const AppLayout: React.FC = () => {
   const { user, logout } = useAuthStore();
   const {
@@ -60,14 +76,47 @@ export const AppLayout: React.FC = () => {
   const { t, locale, setLocale } = useI18nStore();
 
   const [createProjectModalOpen, setCreateProjectModalOpen] = useState(false);
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('opspages-sidebar-collapsed') === 'true';
+  });
+  const [openKeys, setOpenKeys] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('opspages-sidebar-open-groups');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {
+      // ignore storage error
+    }
+    return [SECTION_TO_GROUP[activeSection] || 'grp-hosting'];
   });
 
   useEffect(() => {
     fetchProjects();
   }, []);
+
+  useEffect(() => {
+    const parentGroup = SECTION_TO_GROUP[activeSection];
+    if (parentGroup && !openKeys.includes(parentGroup)) {
+      const next = [...openKeys, parentGroup];
+      setOpenKeys(next);
+      localStorage.setItem('opspages-sidebar-open-groups', JSON.stringify(next));
+    }
+  }, [activeSection]);
+
+  const handleOpenChange = (keys: string[]) => {
+    setOpenKeys(keys);
+    localStorage.setItem('opspages-sidebar-open-groups', JSON.stringify(keys));
+  };
+
+  const toggleAllGroups = () => {
+    const next = openKeys.length === ALL_GROUP_KEYS.length ? [SECTION_TO_GROUP[activeSection] || 'grp-hosting'] : [...ALL_GROUP_KEYS];
+    setOpenKeys(next);
+    localStorage.setItem('opspages-sidebar-open-groups', JSON.stringify(next));
+  };
 
   const toggleCollapsed = () => {
     const next = !collapsed;
@@ -76,39 +125,98 @@ export const AppLayout: React.FC = () => {
   };
 
   const menuItems = [
-    { key: 'dashboard', icon: <DashboardOutlined />, label: t('nav.dashboard', 'Visão Geral') },
     {
-      key: 'deployments',
-      icon: <RocketOutlined />,
-      label: t('nav.deployments', 'Deploys & Versões'),
+      key: 'grp-hosting',
+      icon: <CloudServerOutlined />,
+      label: t('nav.group.hosting', 'Publicação & Git'),
+      children: [
+        {
+          key: 'dashboard',
+          icon: <DashboardOutlined />,
+          label: t('nav.dashboard', 'Visão Geral'),
+        },
+        {
+          key: 'deployments',
+          icon: <RocketOutlined />,
+          label: t('nav.deployments', 'Deploys & Versões'),
+        },
+        {
+          key: 'explorer',
+          icon: <FolderOpenOutlined />,
+          label: t('nav.explorer', 'Arquivos da Build'),
+        },
+        {
+          key: 'git',
+          icon: <BranchesOutlined />,
+          label: t('nav.git', 'Git & /repos'),
+        },
+      ],
     },
     {
-      key: 'explorer',
-      icon: <FolderOpenOutlined />,
-      label: t('nav.explorer', 'Arquivos da Build'),
-    },
-    { key: 'git', icon: <BranchesOutlined />, label: t('nav.git', 'Git & /repos') },
-    { key: 'tokens', icon: <KeyOutlined />, label: t('nav.tokens', 'Tokens de API') },
-    { key: 'iam', icon: <SafetyOutlined />, label: t('nav.iam', 'IAM & Grupos (HBAC)') },
-    { key: 'quotas', icon: <BarChartOutlined />, label: t('nav.quotas', 'Quotas & Limites') },
-    { key: 'cors', icon: <GlobalOutlined />, label: t('nav.cors', 'CORS & Domínios') },
-    {
-      key: 'public-config',
+      key: 'grp-integration',
       icon: <ApiOutlined />,
-      label: t('nav.publicConfig', 'Credenciais Públicas (P-13)'),
+      label: t('nav.group.integration', 'Integração & Rede'),
+      children: [
+        {
+          key: 'public-config',
+          icon: <ApiOutlined />,
+          label: t('nav.publicConfig', 'Credenciais OpsBase (P-13)'),
+        },
+        {
+          key: 'cors',
+          icon: <GlobalOutlined />,
+          label: t('nav.cors', 'CORS & Domínios'),
+        },
+        {
+          key: 'quotas',
+          icon: <BarChartOutlined />,
+          label: t('nav.quotas', 'Quotas & Limites'),
+        },
+      ],
     },
-    { key: 'audit', icon: <HistoryOutlined />, label: t('nav.audit', 'Auditoria & Logs') },
     {
-      key: 'errors',
-      icon: <BugOutlined />,
-      label: t('nav.errors', 'Central de Erros (/errors)'),
+      key: 'grp-security',
+      icon: <SafetyOutlined />,
+      label: t('nav.group.security', 'Segurança & Acesso'),
+      children: [
+        {
+          key: 'iam',
+          icon: <SafetyOutlined />,
+          label: t('nav.iam', 'IAM & Grupos (HBAC)'),
+        },
+        {
+          key: 'tokens',
+          icon: <KeyOutlined />,
+          label: t('nav.tokens', 'Tokens de API'),
+        },
+      ],
     },
-    { key: 'settings', icon: <SettingOutlined />, label: t('nav.settings', 'Configurações') },
+    {
+      key: 'grp-operations',
+      icon: <HistoryOutlined />,
+      label: t('nav.group.operations', 'Governança & Sistema'),
+      children: [
+        {
+          key: 'audit',
+          icon: <HistoryOutlined />,
+          label: t('nav.audit', 'Auditoria & Logs'),
+        },
+        {
+          key: 'errors',
+          icon: <BugOutlined />,
+          label: t('nav.errors', 'Central de Erros (/errors)'),
+        },
+        {
+          key: 'settings',
+          icon: <SettingOutlined />,
+          label: t('nav.settings', 'Configurações & Temas'),
+        },
+      ],
+    },
   ];
 
   const handleMenuClick = (key: string) => {
     setActiveSection(key as NavSection);
-    setMobileDrawerOpen(false);
   };
 
   const projectMenuItems = [
@@ -238,62 +346,81 @@ export const AppLayout: React.FC = () => {
 
   const sidebarContent = (isMobile: boolean = false) => {
     const isSidebarCollapsed = !isMobile && collapsed;
+    const allExpanded = openKeys.length === ALL_GROUP_KEYS.length;
 
     return (
       <div
-        className="flex flex-col h-full justify-between"
+        className="flex flex-col h-screen overflow-hidden"
         style={{ backgroundColor: theme.bgSidebar }}
       >
-        <div>
-          {/* Brand Header */}
+        {/* Fixed Brand Header */}
+        <div
+          className={`h-16 shrink-0 flex items-center border-b ${
+            isSidebarCollapsed ? 'justify-center px-0' : 'px-5 gap-3'
+          }`}
+          style={{ borderColor: isDark ? '#22292E' : '#2A3640' }}
+        >
           <div
-            className={`h-16 flex items-center border-b ${
-              isSidebarCollapsed ? 'justify-center px-0' : 'px-5 gap-3'
-            }`}
-            style={{ borderColor: isDark ? '#22292E' : '#2A3640' }}
+            className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-md shrink-0 cursor-pointer"
+            style={{
+              backgroundColor: theme.primary,
+              boxShadow: `0 4px 12px ${theme.primary}40`,
+            }}
+            onClick={!isMobile ? toggleCollapsed : undefined}
+            title={isSidebarCollapsed ? 'Expandir Menu' : 'AIOps OpsPages'}
           >
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white shadow-md shrink-0 cursor-pointer"
-              style={{
-                backgroundColor: theme.primary,
-                boxShadow: `0 4px 12px ${theme.primary}40`,
-              }}
-              onClick={!isMobile ? toggleCollapsed : undefined}
-              title={isSidebarCollapsed ? 'Expandir Menu' : 'AIOps OpsPages'}
-            >
-              ▲
-            </div>
-            {!isSidebarCollapsed && (
-              <div className="overflow-hidden">
-                <div className="font-bold text-white text-sm tracking-wide truncate">
-                  AIOps OpsPages
-                </div>
-                <div className="text-[10px] text-[#A0AEC0] truncate">
-                  Loft Static Hosting Platform
-                </div>
-              </div>
-            )}
+            ▲
           </div>
+          {!isSidebarCollapsed && (
+            <div className="overflow-hidden">
+              <div className="font-bold text-white text-sm tracking-wide truncate">
+                AIOps OpsPages
+              </div>
+              <div className="text-[10px] text-[#A0AEC0] truncate">
+                Loft Static Hosting Platform
+              </div>
+            </div>
+          )}
+        </div>
 
-          {/* Navigation Menu */}
+        {/* Group Section Header with Expand/Collapse All */}
+        {!isSidebarCollapsed && (
+          <div className="px-5 pt-3 pb-1 shrink-0 flex items-center justify-between">
+            <span className="text-[10px] font-bold tracking-wider uppercase text-[#718096]">
+              Grupos do Menu
+            </span>
+            <button
+              type="button"
+              onClick={toggleAllGroups}
+              className="text-[11px] font-medium text-[#A0AEC0] hover:text-white transition-colors bg-transparent border-0 p-0"
+            >
+              {allExpanded ? 'Recolher grupos' : 'Expandir tudo'}
+            </button>
+          </div>
+        )}
+
+        {/* Scrollable Grouped Navigation Menu */}
+        <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden opspages-sidebar-scroll pb-3">
           <Menu
             theme="dark"
             mode="inline"
             selectedKeys={[activeSection]}
+            openKeys={isSidebarCollapsed ? undefined : openKeys}
+            onOpenChange={isSidebarCollapsed ? undefined : handleOpenChange}
             onClick={({ key }) => handleMenuClick(key)}
             items={menuItems}
-            style={{ background: 'transparent', marginTop: 12, borderRight: 'none' }}
+            style={{ background: 'transparent', marginTop: 4, borderRight: 'none' }}
           />
         </div>
 
-        {/* Desktop Collapse Footer Button */}
+        {/* Fixed Collapse Footer Button */}
         {!isMobile && (
           <div
-            className="p-3 border-t flex items-center justify-center"
+            className="p-3 shrink-0 border-t flex items-center justify-center"
             style={{ borderColor: isDark ? '#22292E' : '#2A3640' }}
           >
             <Tooltip
-              title={collapsed ? 'Expandir Menu' : 'Recolher Menu'}
+              title={collapsed ? 'Expandir Menu Lateral' : 'Recolher Menu Lateral'}
               placement="right"
             >
               <Button
@@ -314,38 +441,29 @@ export const AppLayout: React.FC = () => {
 
   return (
     <Layout className="min-h-screen" style={{ backgroundColor: theme.bgLayout }}>
-      {/* Desktop Collapsible Sider */}
+      {/* Fixed Collapsible Sider with independent vertical scroll */}
       <Sider
-        width={240}
+        width={252}
         collapsedWidth={80}
         collapsible
         collapsed={collapsed}
         onCollapse={setCollapsed}
         trigger={null}
         theme="dark"
-        className="hidden lg:block transition-all duration-200"
+        className="sticky top-0 h-screen shrink-0 transition-all duration-200"
         style={{
+          height: '100vh',
+          position: 'sticky',
+          top: 0,
+          left: 0,
+          zIndex: 30,
+          overflow: 'hidden',
           background: theme.bgSidebar,
           borderRight: `1px solid ${isDark ? '#22292E' : '#2A3640'}`,
         }}
       >
         {sidebarContent(false)}
       </Sider>
-
-      {/* Mobile / Tablet Drawer */}
-      <Drawer
-        placement="left"
-        open={mobileDrawerOpen}
-        onClose={() => setMobileDrawerOpen(false)}
-        width={260}
-        closable={false}
-        styles={{
-          body: { padding: 0, backgroundColor: theme.bgSidebar },
-          header: { display: 'none' },
-        }}
-      >
-        {sidebarContent(true)}
-      </Drawer>
 
       {/* Main Layout Area */}
       <Layout className="w-full" style={{ backgroundColor: theme.bgLayout }}>
@@ -357,32 +475,8 @@ export const AppLayout: React.FC = () => {
             borderColor: theme.colorBorder,
           }}
         >
-          {/* Left section: Hamburger / Desktop Collapse Toggle + Project Selector */}
+          {/* Left section: Project Selector & Live Status */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Mobile Hamburger */}
-            <Button
-              type="text"
-              icon={<MenuOutlined style={{ fontSize: 18 }} />}
-              onClick={() => setMobileDrawerOpen(true)}
-              className="lg:hidden flex items-center justify-center"
-              aria-label="Abrir menu"
-            />
-
-            {/* Desktop Quick Collapse/Unfold button */}
-            <Button
-              type="text"
-              icon={
-                collapsed ? (
-                  <MenuUnfoldOutlined style={{ fontSize: 16 }} />
-                ) : (
-                  <MenuFoldOutlined style={{ fontSize: 16 }} />
-                )
-              }
-              onClick={toggleCollapsed}
-              className="hidden lg:flex items-center justify-center text-gray-500 hover:text-gray-800"
-              title={collapsed ? 'Expandir Menu' : 'Recolher Menu'}
-            />
-
             <Dropdown menu={{ items: projectMenuItems }} trigger={['click']}>
               <Button className="flex items-center gap-1.5 sm:gap-2 h-9 font-semibold px-2 sm:px-3 max-w-[180px] sm:max-w-xs min-w-0">
                 <CloudServerOutlined style={{ color: theme.primary, flexShrink: 0 }} />
@@ -506,10 +600,10 @@ export const AppLayout: React.FC = () => {
 
         {/* Content Body */}
         <Content
-          className="p-3 sm:p-5 lg:p-6 min-h-[calc(100vh-64px)] overflow-x-hidden transition-colors duration-200"
+          className="p-4 sm:p-6 lg:p-8 min-h-[calc(100vh-64px)] overflow-x-hidden transition-colors duration-200"
           style={{ backgroundColor: theme.bgLayout }}
         >
-          <div className="max-w-7xl mx-auto">{renderContent()}</div>
+          <div className="max-w-7xl mx-auto w-full">{renderContent()}</div>
         </Content>
       </Layout>
 

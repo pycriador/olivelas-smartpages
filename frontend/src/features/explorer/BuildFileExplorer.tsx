@@ -163,7 +163,7 @@ export const BuildFileExplorer: React.FC = () => {
     }));
 
   return (
-    <div className="space-y-4">
+    <div className="opspages-page">
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -172,14 +172,14 @@ export const BuildFileExplorer: React.FC = () => {
               <h3 className="text-base font-bold m-0">
                 Explorador de Arquivos da Build (/repos/{activeProject.slug}/releases/{currentVersion})
               </h3>
-              <p className="text-xs text-slate-400 m-0">
+              <p className="text-xs text-slate-400 m-0 mt-1">
                 Inspecione o código-fonte estático exato empacotado em cada release versionada.
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs text-slate-400">Versão:</span>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <span className="text-xs text-slate-400 font-medium">Versão:</span>
             <Select
               value={currentVersion}
               onChange={(val) => setSelectedVersionForExplorer(val)}
@@ -220,7 +220,7 @@ export const BuildFileExplorer: React.FC = () => {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-4">
           <Card title="Árvore de Arquivos" className="h-full">
             {loadingTree ? (

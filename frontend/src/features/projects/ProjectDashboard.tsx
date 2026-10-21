@@ -251,7 +251,7 @@ jobs:
             -F "file=@build.zip"`;
 
   return (
-    <div className="space-y-6 pb-8">
+    <div className="opspages-page">
       {/* Alerts if Locked or Pending Approval */}
       {activeProject.is_locked && (
         <Alert
@@ -401,7 +401,7 @@ jobs:
       </div>
 
       {/* Metrics Row (Exact aiops-opsbase 4-column layout) */}
-      <Row gutter={[16, 16]}>
+      <Row gutter={[20, 20]}>
         <Col xs={24} sm={12} lg={6}>
           <Card
             variant="borderless"
@@ -510,7 +510,7 @@ jobs:
       </Row>
 
       {/* SECTION 1: LIVE PREVIEW & RECENT RELEASES IN /REPOS */}
-      <Row gutter={[16, 16]}>
+      <Row gutter={[20, 20]}>
         <Col xs={24} lg={14}>
           <Card
             title={
@@ -565,11 +565,11 @@ jobs:
             className="shadow-xs border h-full"
             style={{ backgroundColor: theme.bgContainer, borderColor: theme.colorBorder }}
           >
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3">
               {deployments.slice(0, 10).map((dep) => (
                 <div
                   key={dep.id}
-                  className="p-3 rounded-xl border flex items-center justify-between gap-2 transition-colors"
+                  className="p-3.5 rounded-xl border flex items-center justify-between gap-3 transition-colors"
                   style={{
                     backgroundColor: isDark ? '#0F172A40' : '#F8FAFC',
                     borderColor: theme.colorBorder,
@@ -664,8 +664,8 @@ jobs:
             <Spin />
           </div>
         ) : (
-          <div className="space-y-5">
-            <Row gutter={[16, 16]}>
+          <div className="flex flex-col gap-6">
+            <Row gutter={[20, 20]}>
               <Col xs={24} md={12}>
                 <div className="flex justify-between items-center mb-1">
                   <Text strong className="text-xs" style={labelStyle}>

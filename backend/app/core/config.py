@@ -83,6 +83,7 @@ class Settings(BaseSettings):
     OPSBASE_DEVELOPMENT_API_URL: str = "http://localhost:8001/api/v1"
     OPSBASE_PREVIEW_API_URL: str = "http://localhost:8001/api/v1"
     OPSBASE_WEBHOOK_SECRET: str = "aiops-opsbase-opspages-webhook-secret-loft"
+    OPSBASE_PUBLIC_CONFIG_SYNC_TTL_SECONDS: int = 60
     OPSPAGES_PUBLIC_ORIGIN: str = "http://localhost:8005"
     OPSPAGES_FRONTEND_ORIGIN: str = "http://localhost:5176"
 

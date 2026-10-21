@@ -118,7 +118,7 @@ export const GitVersionControl: React.FC = () => {
   if (!activeProject) return null;
 
   return (
-    <div className="space-y-6">
+    <div className="opspages-page">
       <Card>
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
@@ -126,7 +126,7 @@ export const GitVersionControl: React.FC = () => {
               <BranchesOutlined className="text-[#FF774A]" />
               Controle de Versionamento Git & Sincronização GitHub (/repos/{activeProject.slug})
             </h3>
-            <p className="text-xs text-slate-400 m-0 mt-1">
+            <p className="text-xs text-slate-400 m-0 mt-1.5">
               Repositório Git dedicado em <code>{repoStatus?.repo_path || activeProject.repo_disk_path}</code>{' '}
               com tags imutáveis para cada build estática.
             </p>
@@ -147,7 +147,7 @@ export const GitVersionControl: React.FC = () => {
         </div>
 
         <div
-          className="mt-5 p-4 rounded-xl border grid grid-cols-1 lg:grid-cols-12 gap-3 items-end"
+          className="mt-6 p-5 rounded-xl border grid grid-cols-1 lg:grid-cols-12 gap-4 items-end"
           style={{
             backgroundColor: isDark ? '#0F172A40' : '#F8FAFC',
             borderColor: theme.colorBorder,

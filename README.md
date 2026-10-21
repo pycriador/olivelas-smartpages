@@ -21,9 +21,9 @@ Todas as builds estáticas são versionadas em repositórios Git isolados dentro
 | **Swagger / OpenAPI 3.1** | FastAPI Swagger UI & ReDoc | `8005` | `http://localhost:8005/docs` | Documentação interativa completa da API (incluindo upload multipart e quick-build) |
 | **Healthcheck** | FastAPI Probe | `8005` | `http://localhost:8005/health` | Sonda de disponibilidade e status do banco de metadados |
 
-### Rotas Dedicadas do Frontend (`http://localhost:5176`)
+### Rotas Dedicadas e Navegação Lateral em Grupos (`http://localhost:5176`)
 
-Todas as páginas possuem rota própria na URL e sincronizam filtros e paginação (`?page=1&page_size=10&q=...&status=...`, exibindo no mínimo **10 elementos por página**):
+O console possui **menu lateral fixo (`268px`) com rolagem independente** organizado em **4 grupos retráteis** (`Publicação & Git`, `Integração & Rede`, `Segurança & Acesso`, `Governança & Sistema`), sem botão de recolhimento na barra superior, e layout espaçado padronizado (`.opspages-page`). Todas as páginas possuem rota própria na URL e sincronizam filtros e paginação (`?page=1&page_size=10&q=...&status=...`, exibindo no mínimo **10 elementos por página**):
 
 | Rota URL | Módulo | Descrição |
 | :--- | :--- | :--- |

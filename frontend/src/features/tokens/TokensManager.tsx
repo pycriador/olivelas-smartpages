@@ -106,7 +106,7 @@ export const TokensManager: React.FC = () => {
   });
 
   return (
-    <div className="space-y-5">
+    <div className="opspages-page">
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -114,12 +114,12 @@ export const TokensManager: React.FC = () => {
               <KeyOutlined className="text-[#FF774A]" />
               Tokens de API & Automação de Deploy CI/CD ({activeProject.slug})
             </h3>
-            <p className="text-xs text-slate-400 m-0 mt-1">
+            <p className="text-xs text-slate-400 m-0 mt-1.5">
               Autentique pipelines GitHub Actions, GitLab CI ou scripts CLI exclusivamente via Header{' '}
               <code>Authorization: Bearer ...</code> ou <code>X-API-Key: opsp_deploy_...</code> (P-8: Tokens na URL são bloqueados)
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2.5">
             <Input
               prefix={<SearchOutlined className="text-slate-400" />}
               value={search}
@@ -152,7 +152,7 @@ export const TokensManager: React.FC = () => {
         </div>
       </Card>
 
-      <Card bodyStyle={{ padding: 0 }}>
+      <Card styles={{ body: { padding: 0 } }}>
         <Table
           rowKey="id"
           loading={loading}

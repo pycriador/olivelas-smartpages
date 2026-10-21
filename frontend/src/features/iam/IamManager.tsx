@@ -200,54 +200,64 @@ export const IamManager: React.FC = () => {
   }, [groups, search, roleFilter]);
 
   return (
-    <div className="space-y-5">
+    <div className="opspages-page">
       <Card>
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold m-0 flex items-center gap-2">
-              <SafetyCertificateOutlined className="text-[#FF774A]" />
-              Gerenciamento de Usuários, Grupos & Controle de Acesso HBAC
-            </h3>
-            <p className="text-xs text-slate-400 m-0 mt-1">
-              Hierarquia de papéis: <strong>Admin</strong> (controle total e trava de versões) &gt;{' '}
-              <strong>Editor</strong> (upload de builds, aprovação e rollback) &gt;{' '}
-              <strong>Visualizador</strong> (leitura e preview).
-            </p>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-lg font-bold m-0 flex items-center gap-2">
+                <SafetyCertificateOutlined className="text-[#FF774A]" />
+                Gerenciamento de Usuários, Grupos & Controle de Acesso HBAC
+              </h3>
+              <p className="text-xs text-slate-400 m-0 mt-1.5">
+                Hierarquia de papéis: <strong>Admin</strong> (controle total e trava de versões) &gt;{' '}
+                <strong>Editor</strong> (upload de builds, aprovação e rollback) &gt;{' '}
+                <strong>Visualizador</strong> (leitura e preview).
+              </p>
+            </div>
+            <Space wrap>
+              <Button icon={<PlusOutlined />} onClick={() => setGroupModalOpen(true)}>
+                Novo Grupo
+              </Button>
+              <Button
+                type="primary"
+                icon={<UserAddOutlined />}
+                onClick={() => setUserModalOpen(true)}
+              >
+                Cadastrar Usuário
+              </Button>
+            </Space>
           </div>
-          <Space wrap>
-            <Input
-              allowClear
-              prefix={<SearchOutlined />}
-              placeholder="Filtrar usuários, e-mails ou grupos..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              style={{ width: 240 }}
-            />
-            <Select
-              value={roleFilter}
-              onChange={(val) => setRoleFilter(val)}
-              style={{ width: 155 }}
-              options={[
-                { value: 'all', label: 'Todos os Papéis' },
-                { value: 'admin', label: 'Admin' },
-                { value: 'editor', label: 'Editor' },
-                { value: 'viewer', label: 'Visualizador' },
-              ]}
-            />
-            {(search || roleFilter !== 'all') && (
-              <Button onClick={resetFilters}>Limpar</Button>
-            )}
-            <Button icon={<PlusOutlined />} onClick={() => setGroupModalOpen(true)}>
-              Novo Grupo
-            </Button>
-            <Button
-              type="primary"
-              icon={<UserAddOutlined />}
-              onClick={() => setUserModalOpen(true)}
-            >
-              Cadastrar Usuário
-            </Button>
-          </Space>
+
+          <div className="pt-3 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <Space wrap>
+              <Input
+                allowClear
+                prefix={<SearchOutlined />}
+                placeholder="Filtrar usuários, e-mails ou grupos..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                style={{ width: 260 }}
+              />
+              <Select
+                value={roleFilter}
+                onChange={(val) => setRoleFilter(val)}
+                style={{ width: 165 }}
+                options={[
+                  { value: 'all', label: 'Todos os Papéis' },
+                  { value: 'admin', label: 'Admin' },
+                  { value: 'editor', label: 'Editor' },
+                  { value: 'viewer', label: 'Visualizador' },
+                ]}
+              />
+              {(search || roleFilter !== 'all') && (
+                <Button onClick={resetFilters}>Limpar Filtros</Button>
+              )}
+            </Space>
+            <span className="text-xs text-slate-400">
+              {filteredUsers.length} usuário(s) • {filteredGroups.length} grupo(s)
+            </span>
+          </div>
         </div>
       </Card>
 

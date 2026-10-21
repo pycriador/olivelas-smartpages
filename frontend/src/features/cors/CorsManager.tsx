@@ -91,32 +91,34 @@ export const CorsManager: React.FC = () => {
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <GlobalOutlined className="text-[#FF774A]" />
-            CORS & Headers para Páginas Estáticas (Validação Estrita • P-9)
-          </h2>
-          <p className="text-xs text-theme-muted mt-0.5">
-            Configure domínios exatos autorizados (com <code>Vary: Origin</code>) para consumir assets de{' '}
-            <span className="font-mono text-[#FF774A]">/pages/{activeProject.slug}/</span>
-          </p>
+    <div className="opspages-page">
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-bold m-0 flex items-center gap-2">
+              <GlobalOutlined className="text-[#FF774A]" />
+              CORS & Headers para Páginas Estáticas (Validação Estrita • P-9)
+            </h3>
+            <p className="text-xs text-slate-400 m-0 mt-1.5">
+              Configure domínios exatos autorizados (com <code>Vary: Origin</code>) para consumir assets de{' '}
+              <span className="font-mono text-[#FF774A]">/pages/{activeProject.slug}/</span>
+            </p>
+          </div>
+          <div className="flex items-center gap-2.5">
+            <Input
+              prefix={<SearchOutlined className="text-slate-400" />}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filtrar origem CORS..."
+              className="w-60"
+              allowClear
+            />
+            <Button icon={<ReloadOutlined spin={loading} />} onClick={loadRules}>
+              Atualizar
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Input
-            prefix={<SearchOutlined className="text-slate-400" />}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filtrar origem CORS..."
-            className="w-56"
-            allowClear
-          />
-          <Button icon={<ReloadOutlined spin={loading} />} onClick={loadRules}>
-            Atualizar
-          </Button>
-        </div>
-      </div>
+      </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card
