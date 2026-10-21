@@ -43,7 +43,8 @@ interface PublicOverviewData {
     spa_mode: boolean;
     github_subpath?: string;
     live_url: string;
-    deployments: Array<{
+    // Opcional: desde 350045e (P-11) o /public/overview só envia deployments para chamadas autenticadas.
+    deployments?: Array<{
       id: number;
       version: string;
       status: string;
@@ -537,7 +538,7 @@ export const LandingPage: React.FC = () => {
                         </span>
                         <Tag color="blue">repo: /repos/{featured.slug}</Tag>
                         <span className="text-[#718096]">
-                          {featured.deployments.length} releases registradas
+                          {featured.deployments?.length ?? 0} releases registradas
                         </span>
                       </div>
                       <div className="flex items-center gap-4 flex-wrap">
@@ -578,7 +579,7 @@ export const LandingPage: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#22292E] text-[#E2E8F0]">
-                          {featured.deployments.map((dep) => {
+                          {(featured.deployments ?? []).map((dep) => {
                             const isLive = dep.version === featured.active_version;
                             return (
                               <tr key={dep.id}>
