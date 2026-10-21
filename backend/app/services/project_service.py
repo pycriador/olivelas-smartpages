@@ -44,7 +44,14 @@ from app.services.auth_service import invalidate_auth_cache
 from app.services.deployment_service import DeploymentService
 from app.services.git_storage_service import GitStorageService
 from app.services.hbac_service import HBACService
-from app.services.opsbase_service import OpsBaseIntegrationService, VALID_PUBLIC_CONFIG_ENVIRONMENTS, utc_now
+from app.services.opsbase_service import (
+    OpsBaseAuthBackoffError,
+    OpsBaseIntegrationService,
+    VALID_PUBLIC_CONFIG_ENVIRONMENTS,
+    opsbase_auth_backoff,
+    opsbase_backoff_key,
+    utc_now,
+)
 
 logger = logging.getLogger("aiops.opspages.project")
 
@@ -846,7 +853,7 @@ jobs:
             )
         )
 
-        if needs_opsbase_sync:
+        if needs_opsbase_sync and opsbase_auth_backoff.remaining(opsbase_backoff_key()) <= 0:
             try:
                 OpsBaseIntegrationService.link_or_sync_project(
                     db=db,
@@ -863,6 +870,8 @@ jobs:
                     .all()
                 )
                 by_env = {c.environment: c for c in existing}
+            except OpsBaseAuthBackoffError:
+                pass  # P-22: keep existing configs; backoff already logged once per window
             except Exception as exc:
                 logger.warning(f"Auto-sync with OpsBase failed for '{project.slug}': {exc}")
 
@@ -1151,6 +1160,11 @@ jobs:
             if age_seconds < ttl_seconds:
                 return cfg
 
+        # P-22: while OpsBase admin login is in backoff, serve the last good config
+        # without touching OpsBase (the backoff itself logs once per window).
+        if opsbase_auth_backoff.remaining(opsbase_backoff_key()) > 0:
+            return cfg
+
         try:
             OpsBaseIntegrationService.link_or_sync_project(
                 db=db,
@@ -1161,6 +1175,8 @@ jobs:
                 auto_provision_if_missing=False,
                 sync_cors=False,
             )
+        except OpsBaseAuthBackoffError:
+            return cfg
         except Exception as exc:
             logger.warning(
                 f"Opportunistic OpsBase config re-sync failed for project {project.slug} "

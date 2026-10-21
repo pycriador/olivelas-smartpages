@@ -251,7 +251,9 @@ def init_meta_db() -> None:
                     sync_cors=True,
                 )
             except Exception as sync_exc:
-                logger.warning(f"OpsBase discovery sync skipped during startup for '{proj.slug}': {sync_exc}")
+                # P-22: an auth backoff is logged once per window by the backoff itself.
+                if getattr(sync_exc, "code", None) != "OPSBASE_AUTH_BACKOFF":
+                    logger.warning(f"OpsBase discovery sync skipped during startup for '{proj.slug}': {sync_exc}")
                 # Ensure all 4 environments exist with default URL http://localhost:8001/api/v1 and NO fake placeholder keys
                 for env_name in VALID_PUBLIC_CONFIG_ENVIRONMENTS:
                     existing_cfg = (

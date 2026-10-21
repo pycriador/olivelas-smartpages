@@ -26,6 +26,8 @@ from __future__ import annotations
 import json
 import logging
 import re
+import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -34,11 +36,108 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.errors import NotFoundError, ValidationError
+from app.core.errors import ApplicationError, NotFoundError, ValidationError
 from app.models.meta_models import CorsRule, Project, ProjectPublicConfig
 from app.services.audit_service import AuditService
 
 logger = logging.getLogger("aiops.opspages.opsbase")
+
+
+# --- OpsBase admin-login backoff (Item P-22) -------------------------------------------
+# A wrong or outdated platform credential must never turn into a login storm against
+# OpsBase (incident 2026-10-21 14:44 BRT: ~40 logins in 19 s, both lock counters tripped).
+# Process-wide, thread-safe negative cache per OpsBase base URL: after a failed admin
+# login no new attempt is made for 30 s, doubling per consecutive failure up to 5 min.
+# A successful login resets it. While in backoff callers get OpsBaseAuthBackoffError
+# without any request to OpsBase; public-config paths keep serving the last good value.
+OPSBASE_AUTH_BACKOFF_BASE_SECONDS = 30.0
+OPSBASE_AUTH_BACKOFF_MAX_SECONDS = 300.0
+_monotonic = time.monotonic  # patched by offline tests to simulate the clock
+
+
+class OpsBaseAuthBackoffError(ApplicationError):
+    """Raised instead of logging in to OpsBase while the auth backoff window is open."""
+
+    def __init__(self, retry_after_seconds: float, reason: str = "auth backoff"):
+        retry = max(0, int(round(retry_after_seconds)))
+        super().__init__(
+            message=(
+                f"OpsBase admin authentication in backoff ({reason}); "
+                f"no login attempted, retry in {retry}s."
+            ),
+            code="OPSBASE_AUTH_BACKOFF",
+            status_code=503,
+            details={"retry_after_seconds": retry, "reason": reason},
+        )
+        self.retry_after_seconds = retry
+
+
+class _OpsBaseAuthBackoff:
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._state: Dict[str, Dict[str, Any]] = {}
+
+    def remaining(self, base: str) -> float:
+        with self._lock:
+            st = self._state.get(base)
+            if not st:
+                return 0.0
+            return max(0.0, st["until"] - _monotonic())
+
+    def check(self, base: str) -> None:
+        """Raise OpsBaseAuthBackoffError if base is in backoff (logs once per window)."""
+        with self._lock:
+            st = self._state.get(base)
+            if not st:
+                return
+            left = st["until"] - _monotonic()
+            if left <= 0:
+                return
+            if not st["logged"]:
+                st["logged"] = True
+                logger.warning(
+                    "OpsBase admin login in backoff for %s: %d consecutive failure(s), last status %s; "
+                    "no login attempts for the next %ds (serving cached public config).",
+                    base, st["failures"], st["last_status"], int(left),
+                )
+            reason = st["reason"]
+        raise OpsBaseAuthBackoffError(left, reason)
+
+    def record_failure(self, base: str, status_code: Optional[int]) -> float:
+        with self._lock:
+            st = self._state.get(base) or {"failures": 0}
+            failures = int(st.get("failures", 0)) + 1
+            window = min(
+                OPSBASE_AUTH_BACKOFF_BASE_SECONDS * (2 ** (failures - 1)),
+                OPSBASE_AUTH_BACKOFF_MAX_SECONDS,
+            )
+            self._state[base] = {
+                "failures": failures,
+                "until": _monotonic() + window,
+                "logged": False,
+                "last_status": status_code,
+                "reason": f"login failed (HTTP {status_code})" if status_code else "login failed",
+            }
+            return window
+
+    def record_success(self, base: str) -> None:
+        with self._lock:
+            self._state.pop(base, None)
+
+    def reset_all(self) -> None:
+        with self._lock:
+            self._state.clear()
+
+
+opsbase_auth_backoff = _OpsBaseAuthBackoff()
+
+
+def opsbase_backoff_key(opsbase_base_url: Optional[str] = None) -> str:
+    """Normalized OpsBase base URL, same derivation fetch_discovery/_authenticate use."""
+    base = (opsbase_base_url or settings.OPSBASE_BASE_URL or "http://localhost:8001").strip().rstrip("/")
+    if base.endswith("/api/v1"):
+        base = base[: -len("/api/v1")]
+    return base
 
 VALID_PUBLIC_CONFIG_ENVIRONMENTS = ("production", "staging", "development", "preview")
 
@@ -295,44 +394,90 @@ class OpsBaseIntegrationService:
             if (utc_now() - cached_at).total_seconds() < 300:
                 return cached_tok
 
-        email_candidates = [
-            settings.aiops_opsbase_user,
-            settings.DEFAULT_SUPERADMIN_EMAIL,
-            settings.BOOTSTRAP_ADMIN_EMAIL,
-            settings.DEFAULT_SUPERADMIN_USERNAME,
-        ]
-        emails = []
-        for e in email_candidates:
-            if e and e.strip() and e.strip() not in emails:
-                emails.append(e.strip())
+        # P-22: no login at all while a previous failure's backoff window is open.
+        opsbase_auth_backoff.check(base)
 
-        passwords: List[str] = []
-        for p in (
-            settings.aiops_opsbase_password,
-            settings.DEFAULT_SUPERADMIN_PASSWORD,
-            settings.BOOTSTRAP_ADMIN_PASSWORD,
-            settings.aiops_app_builder_password,
-        ):
-            if p and p.strip() and p.strip() not in passwords:
-                passwords.append(p.strip())
+        def _distinct(values: List[Optional[str]], casefold: bool) -> List[str]:
+            out: List[str] = []
+            seen = set()
+            for v in values:
+                v = (v or "").strip()
+                key = v.lower() if casefold else v
+                if v and key not in seen:
+                    seen.add(key)
+                    out.append(v)
+            return out
 
+        emails = _distinct(
+            [
+                settings.aiops_opsbase_user,
+                settings.DEFAULT_SUPERADMIN_EMAIL,
+                settings.BOOTSTRAP_ADMIN_EMAIL,
+                settings.DEFAULT_SUPERADMIN_USERNAME,
+            ],
+            casefold=True,
+        )
+        passwords = _distinct(
+            [
+                settings.aiops_opsbase_password,
+                settings.DEFAULT_SUPERADMIN_PASSWORD,
+                settings.BOOTSTRAP_ADMIN_PASSWORD,
+                settings.aiops_app_builder_password,
+            ],
+            casefold=False,
+        )
+        if not emails or not passwords:
+            return None
+
+        # P-22: minimal attempts. Each distinct (username, password) pair at most once;
+        # a 401 (or any other rejection) for a username skips that username's remaining
+        # passwords; the first 429 stops the whole sequence; any failure opens the backoff.
+        last_status: Optional[int] = None
+        attempted = False
         with httpx.Client(timeout=5.0, trust_env=False) as client:
             for username in emails:
+                stop_all = False
                 for pwd in passwords:
                     try:
+                        attempted = True
                         resp = client.post(
                             f"{base}/api/v1/auth/login",
                             json={"username": username, "password": pwd},
                         )
-                        if resp.status_code == 200:
-                            data = resp.json()
-                            token = data.get("access_token")
-                            if token:
-                                OpsBaseIntegrationService._token_cache[base] = (token, utc_now())
-                                return token
                     except Exception as exc:
-                        logger.debug(f"OpsBase auth attempt failed for {username}: {exc}")
-                        break
+                        # OpsBase unreachable: not a credential failure; stop, no backoff.
+                        logger.debug(f"OpsBase auth request failed (network): {type(exc).__name__}")
+                        return None
+                    last_status = resp.status_code
+                    if resp.status_code == 200:
+                        token = None
+                        try:
+                            data = resp.json()
+                            if isinstance(data, dict):
+                                token = data.get("access_token") or (
+                                    (data.get("data") or {}).get("access_token")
+                                    if isinstance(data.get("data"), dict)
+                                    else None
+                                )
+                        except Exception:
+                            token = None
+                        if token:
+                            OpsBaseIntegrationService._token_cache[base] = (token, utc_now())
+                            opsbase_auth_backoff.record_success(base)
+                            return token
+                        break  # 200 without token: treat as rejection for this username
+                    if resp.status_code == 429:
+                        stop_all = True
+                    break  # 401/403/422/5xx: never try this username's other passwords
+                if stop_all:
+                    break
+
+        if attempted:
+            window = opsbase_auth_backoff.record_failure(base, last_status)
+            logger.warning(
+                "OpsBase admin login failed (HTTP %s); backing off for %ds.", last_status, int(window)
+            )
+            raise OpsBaseAuthBackoffError(window, f"login failed (HTTP {last_status})")
         return None
 
     @staticmethod
@@ -586,9 +731,9 @@ class OpsBaseIntegrationService:
         sync_error: Optional[str] = None
 
         if project.opsbase_project_id:
-            token = OpsBaseIntegrationService._authenticate_opsbase_client(base_url, opsbase_token)
-            headers = {"Authorization": f"Bearer {token}"} if token else {}
             try:
+                token = OpsBaseIntegrationService._authenticate_opsbase_client(base_url, opsbase_token)
+                headers = {"Authorization": f"Bearer {token}"} if token else {}
                 with httpx.Client(timeout=8.0, trust_env=False) as client:
                     resp = client.post(
                         f"{base_url}/api/v1/projects/{project.opsbase_project_id}/cors/pages-sync",
@@ -621,6 +766,8 @@ class OpsBaseIntegrationService:
                             )
                     else:
                         sync_error = f"HTTP {resp.status_code}: {resp.text[:200]}"
+            except OpsBaseAuthBackoffError as exc:
+                sync_error = exc.message  # P-22: no request sent to OpsBase; already logged once per window
             except Exception as exc:
                 sync_error = str(exc)
                 logger.warning(f"Failed to sync CORS with OpsBase for project {project.slug}: {exc}")
@@ -1082,7 +1229,10 @@ class OpsBaseIntegrationService:
         if base_url.endswith("/api/v1"):
             base_url = base_url[: -len("/api/v1")]
 
-        token = OpsBaseIntegrationService._authenticate_opsbase_client(base_url, opsbase_token)
+        try:
+            token = OpsBaseIntegrationService._authenticate_opsbase_client(base_url, opsbase_token)
+        except OpsBaseAuthBackoffError as exc:
+            return {"deleted": False, "opsbase_project_id": project.opsbase_project_id, "error": exc.message}
         headers = {"Authorization": f"Bearer {token}"} if token else {}
 
         try:
