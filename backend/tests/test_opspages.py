@@ -32,6 +32,61 @@ settings.REPOS_STORAGE_DIR = os.environ["REPOS_STORAGE_DIR"]
 from app.main import app
 from app.db.session import init_meta_db
 
+# --- Network guard + login fail-fast (round 5, incident 14:44 BRT; GAPS-pages P-21) ---
+# The app calls OpsBase (discovery, admin login, cors-sync) through httpx while these tests
+# create projects. Those calls must never reach a live OpsBase by accident, and a failing
+# login must never be retried: one 401/429 aborts the whole run.
+# - Default: every outbound request to a host other than the TestClient ("testserver") is
+#   blocked before it leaves the process (the app treats it as "OpsBase unreachable").
+# - Opt-in (OPSPAGES_TESTS_ALLOW_LIVE_OPSBASE=1, only against a dedicated test OpsBase):
+#   requests go out, but the first 401/429 from any /auth/login stops the run.
+import httpx
+
+LOGIN_FAILFAST_STATUSES = {401, 429}
+_ALLOW_LIVE_OPSBASE = os.environ.get("OPSPAGES_TESTS_ALLOW_LIVE_OPSBASE") == "1"
+_login_failure: dict = {}
+_original_client_send = httpx.Client.send
+
+
+def _is_login_request(request: httpx.Request) -> bool:
+    return request.method == "POST" and request.url.path.rstrip("/").endswith("/auth/login")
+
+
+def _guarded_send(self, request, *args, **kwargs):
+    if _login_failure:
+        # A login already failed: no further requests of any kind (no retry, no next candidate).
+        raise httpx.ConnectError("test run aborted after login failure (fail-fast)", request=request)
+    if request.url.host != "testserver" and not _ALLOW_LIVE_OPSBASE:
+        raise httpx.ConnectError(
+            f"outbound request blocked by test guard: {request.method} {request.url.host}{request.url.path}",
+            request=request,
+        )
+    response = _original_client_send(self, request, *args, **kwargs)
+    if _is_login_request(request) and response.status_code in LOGIN_FAILFAST_STATUSES:
+        _login_failure.update(
+            status=response.status_code, host=request.url.host, path=request.url.path
+        )
+    return response
+
+
+httpx.Client.send = _guarded_send
+
+
+def _abort_if_login_failed() -> None:
+    if _login_failure:
+        pytest.exit(
+            "fail-fast: login returned HTTP {status} at {host}{path}; aborting the whole run "
+            "without retrying (incident 14:44, P-21)".format(**_login_failure),
+            returncode=1,
+        )
+
+
+@pytest.fixture(autouse=True)
+def _login_failfast_guard():
+    _abort_if_login_failed()
+    yield
+    _abort_if_login_failed()
+
 
 def create_zip_bytes(files: dict[str, str]) -> bytes:
     buf = io.BytesIO()
