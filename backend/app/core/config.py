@@ -83,7 +83,12 @@ class Settings(BaseSettings):
     OPSBASE_DEVELOPMENT_API_URL: str = "http://localhost:8001/api/v1"
     OPSBASE_PREVIEW_API_URL: str = "http://localhost:8001/api/v1"
     OPSBASE_WEBHOOK_SECRET: str = "aiops-opsbase-opspages-webhook-secret-loft"
-    OPSBASE_PUBLIC_CONFIG_SYNC_TTL_SECONDS: int = 60
+    # Max staleness (Item P-13d) before a read of the public config opportunistically
+    # re-syncs from OpsBase discovery. There is no push webhook from OpsBase itself on
+    # key rotation today (OpsPages only RECEIVES one at /webhooks/opsbase if OpsBase were
+    # to call it), so this TTL is the actual upper bound on propagation delay — kept
+    # short deliberately so "no manual sync, no redeploy" stays true in practice.
+    OPSBASE_PUBLIC_CONFIG_SYNC_TTL_SECONDS: int = 10
     OPSPAGES_PUBLIC_ORIGIN: str = "http://localhost:8005"
     OPSPAGES_FRONTEND_ORIGIN: str = "http://localhost:5176"
 

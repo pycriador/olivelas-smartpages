@@ -284,48 +284,6 @@ def get_public_overview(request: Request, db: Session = Depends(get_meta_db)):
 
     featured_data = None
     if featured:
-        deps_query = db.query(Deployment).filter(Deployment.project_id == featured.id)
-        if not is_authenticated:
-            deps_query = deps_query.filter(Deployment.status.in_(["published", "ready"]))
-        deps = deps_query.order_by(desc(Deployment.created_at)).limit(10).all()
-
-        try:
-            raw_git = GitStorageService.get_repo_status(featured, limit=10).model_dump()
-            # Redact internal filesystem path, commit author identity/sha, and head sha
-            # when unauthenticated — git history/authorship is not public data (P-11).
-            if not is_authenticated:
-                raw_git.pop("repo_path", None)
-                raw_git.pop("head_sha", None)
-                for c in raw_git.get("commits", []):
-                    c.pop("author_email", None)
-                    c.pop("author_name", None)
-                    c.pop("sha", None)
-                    c.pop("short_sha", None)
-            git_st = raw_git
-        except Exception:
-            git_st = {"initialized": False, "branch": "main", "head_sha": None, "total_commits": 0, "tags": [], "commits": []}
-
-        featured_deployments = []
-        for d in deps:
-            dep_item: Dict[str, Any] = {
-                "id": d.id,
-                "version": d.version,
-                "git_tag": d.git_tag,
-                "status": d.status,
-                "source": d.source,
-                "file_count": d.file_count,
-                "size_bytes": d.size_bytes,
-                "created_at": d.created_at.isoformat() if d.created_at else None,
-                "preview_url": f"/pages/{featured.slug}/v/{d.version}/",
-            }
-            if is_authenticated:
-                dep_item["git_commit_sha"] = d.git_commit_sha
-                dep_item["release_notes"] = d.release_notes
-                dep_item["deployed_by_email"] = d.created_by_email
-                dep_item["created_by_email"] = d.created_by_email
-                dep_item["approved_by_email"] = d.approved_by_email
-            featured_deployments.append(dep_item)
-
         featured_data = {
             "id": featured.id,
             "name": featured.name,
@@ -338,11 +296,47 @@ def get_public_overview(request: Request, db: Session = Depends(get_meta_db)):
             "auto_approval": featured.auto_approval,
             "spa_mode": featured.spa_mode,
             "live_url": featured.live_url,
-            "github_branch": featured.github_branch,
-            "deployments": featured_deployments,
-            "git_status": git_st,
         }
+
         if is_authenticated:
+            # Deployment history and git metadata (branch, tags, commit log, GitHub repo
+            # URL/subpath, sync settings) are only meaningful to someone who can already
+            # manage the project — an anonymous landing-page visitor gets the minimal
+            # public identity above and nothing else (Item P-11).
+            deps = (
+                db.query(Deployment)
+                .filter(Deployment.project_id == featured.id)
+                .order_by(desc(Deployment.created_at))
+                .limit(10)
+                .all()
+            )
+            try:
+                git_st = GitStorageService.get_repo_status(featured, limit=10).model_dump()
+            except Exception:
+                git_st = {"initialized": False, "branch": "main", "head_sha": None, "total_commits": 0, "tags": [], "commits": []}
+
+            featured_deployments = []
+            for d in deps:
+                featured_deployments.append({
+                    "id": d.id,
+                    "version": d.version,
+                    "git_tag": d.git_tag,
+                    "status": d.status,
+                    "source": d.source,
+                    "file_count": d.file_count,
+                    "size_bytes": d.size_bytes,
+                    "created_at": d.created_at.isoformat() if d.created_at else None,
+                    "preview_url": f"/pages/{featured.slug}/v/{d.version}/",
+                    "git_commit_sha": d.git_commit_sha,
+                    "release_notes": d.release_notes,
+                    "deployed_by_email": d.created_by_email,
+                    "created_by_email": d.created_by_email,
+                    "approved_by_email": d.approved_by_email,
+                })
+
+            featured_data["github_branch"] = featured.github_branch
+            featured_data["deployments"] = featured_deployments
+            featured_data["git_status"] = git_st
             featured_data["repo_disk_path"] = f"/repos/{featured.slug}"
 
     response_payload: Dict[str, Any] = {

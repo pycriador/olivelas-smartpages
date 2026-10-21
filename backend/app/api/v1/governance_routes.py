@@ -27,7 +27,7 @@ from app.schemas.governance import (
     QuotaUpdateRequest,
     QuotaUsageResponse,
 )
-from app.schemas.project import OpsBaseWebhookRequest
+from app.schemas.project import OpsBaseWebhookRequest, PublicRuntimeConfigResponse
 from app.services.audit_service import AuditService
 from app.services.auth_service import get_current_user, require_project_role, resolve_optional_user_from_request
 from app.services.hbac_service import HBACService
@@ -218,6 +218,16 @@ public_projects_router = APIRouter(prefix="/public/projects", tags=["Public Runt
 @public_projects_router.get(
     "/{slug}/config",
     summary="Fetch Public Runtime Configuration & Scoped Opsbase Credentials for a Static Site (P-13)",
+    description=(
+        "`opsbase.public_key` is the one canonical field for the Opsbase anon/public key. "
+        "Every other field carrying the same value (`public_key`, `anon_key`, "
+        "`opsbase_public_key`, `opsbase_anon_key`, `opsbase.publicKey`, `opsbase.anon_key`, "
+        "`opsbase.anonKey`, `env.OPSBASE_PUBLIC_KEY`, `env.OPSBASE_ANON_KEY`) is deprecated "
+        "(Item P-18) and scheduled for removal — see each field's OpenAPI `deprecated` flag. "
+        "`key_sync_max_staleness_seconds` documents the maximum delay before a key rotated "
+        "on the OpsBase side is reflected here, with no manual sync call or redeploy (Item P-13d)."
+    ),
+    response_model=PublicRuntimeConfigResponse,
 )
 def get_public_project_runtime_config(
     slug: str,

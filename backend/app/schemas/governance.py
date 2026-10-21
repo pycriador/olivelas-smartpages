@@ -3,9 +3,9 @@ Pydantic v2 Schemas for Quotas, CORS, and Audit Logs.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 # Quotas
@@ -73,7 +73,22 @@ class CorsRuleResponse(BaseModel):
     cache_control: str
     is_active: bool
     created_at: datetime
+    updated_at: Optional[datetime] = None
+    created_by_email: Optional[str] = None
+    updated_by_email: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at", "updated_at")
+    def _serialize_utc_z(self, value: Optional[datetime]) -> Optional[str]:
+        # On SQLite, `DateTime(timezone=True)` is written tz-aware but read back naive
+        # (SQLite has no native tz-aware datetime type), so this would otherwise
+        # serialize without a UTC offset/Z suffix despite the value always being UTC
+        # (Item P-17).
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 # Audit

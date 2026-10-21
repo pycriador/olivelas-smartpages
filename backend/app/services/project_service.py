@@ -1251,6 +1251,10 @@ jobs:
             "env": env_vars,
             "inject_in_html": cfg.inject_in_html,
             "is_active": cfg.is_active,
+            # Documents the upper bound on key-rotation propagation delay (Item P-13d):
+            # a key rotated on the OpsBase side is guaranteed to be reflected here within
+            # this many seconds of any subsequent read, with no manual sync call needed.
+            "key_sync_max_staleness_seconds": settings.OPSBASE_PUBLIC_CONFIG_SYNC_TTL_SECONDS,
         }
 
     @classmethod

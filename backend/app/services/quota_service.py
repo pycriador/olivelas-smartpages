@@ -193,6 +193,8 @@ class CorsService:
             max_age_seconds=max_age,
             cache_control=cache_ctrl,
             is_active=req.is_active if req.is_active is not None else True,
+            created_by_email=actor.email,
+            updated_by_email=actor.email,
         )
         db.add(rule)
         db.commit()
@@ -252,6 +254,8 @@ class CorsService:
             rule.cache_control = req.cache_control.strip()
         if req.is_active is not None:
             rule.is_active = req.is_active
+
+        rule.updated_by_email = actor.email
 
         db.commit()
         db.refresh(rule)

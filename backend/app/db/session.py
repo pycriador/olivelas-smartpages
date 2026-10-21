@@ -128,6 +128,9 @@ def _ensure_schema_columns() -> None:
     cors_migrations = [
         ("allow_credentials", "BOOLEAN NOT NULL DEFAULT 0"),
         ("max_age_seconds", "INTEGER NOT NULL DEFAULT 3600"),
+        ("updated_at", "DATETIME"),
+        ("created_by_email", "VARCHAR(255)"),
+        ("updated_by_email", "VARCHAR(255)"),
     ]
 
     public_config_migrations = [

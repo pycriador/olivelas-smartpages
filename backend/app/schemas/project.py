@@ -344,4 +344,95 @@ class ProjectPublicConfigResponse(BaseModel):
     updated_by_email: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+
+# --- Public runtime config response (Item P-18) ---
+# The Opsbase anon/public key used to be duplicated across 10 differently-named fields
+# with no canonical field documented and nothing marked deprecated in the OpenAPI spec.
+# `opsbase.public_key` is now the one canonical field; every other key-carrying field
+# below is kept (for backward compatibility with existing deployed sites) but marked
+# `deprecated` in the OpenAPI schema with a planned removal date.
+PUBLIC_KEY_DEPRECATION_REMOVAL_DATE = "2027-01-21"
+
+
+def _deprecated_key_field(description: str) -> Any:
+    return Field(
+        default=None,
+        description=description,
+        json_schema_extra={
+            "deprecated": True,
+            "deprecated_use_instead": "opsbase.public_key",
+            "deprecated_removal_date": PUBLIC_KEY_DEPRECATION_REMOVAL_DATE,
+        },
+    )
+
+
+class OpsbasePublicBlock(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    url: Optional[str] = None
+    api_base_url: Optional[str] = None
+    data_plane_url: Optional[str] = None
+    auth_url: Optional[str] = None
+    public_key: Optional[str] = Field(
+        default=None, description="Canonical field for the Opsbase anon/public key. Use this one."
+    )
+    publicKey: Optional[str] = _deprecated_key_field("Deprecated alias of `public_key`.")
+    anon_key: Optional[str] = _deprecated_key_field("Deprecated alias of `public_key`.")
+    anonKey: Optional[str] = _deprecated_key_field("Deprecated alias of `public_key`.")
+    key_prefix: Optional[str] = None
+    key_type: Optional[str] = None
+    key_status: Optional[str] = None
+    key_source: Optional[str] = None
+    keySource: Optional[str] = _deprecated_key_field("Deprecated alias of `key_source`.")
+    project_id: Optional[int] = None
+    project_slug: Optional[str] = None
+    schema_name: Optional[str] = None
+    rls_enforced: Optional[bool] = None
+    scopes: List[str] = Field(default_factory=list)
+
+
+class PublicRuntimeConfigEnvVars(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    OPSBASE_URL: Optional[str] = None
+    OPSBASE_API_URL: Optional[str] = None
+    OPSBASE_DATA_PLANE_URL: Optional[str] = None
+    OPSBASE_AUTH_URL: Optional[str] = None
+    OPSBASE_PUBLIC_KEY: Optional[str] = _deprecated_key_field("Deprecated alias of `opsbase.public_key`.")
+    OPSBASE_ANON_KEY: Optional[str] = _deprecated_key_field("Deprecated alias of `opsbase.public_key`.")
+    OPSBASE_PROJECT: Optional[str] = None
+    OPSBASE_PROJECT_ID: Optional[int] = None
+    OPSBASE_KEY_STATUS: Optional[str] = None
+    OPSPAGES_BASE_URL: Optional[str] = None
+    ENVIRONMENT: Optional[str] = None
+
+
+class PublicRuntimeConfigResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    project_slug: str
+    project_name: str
+    environment: str
+    version: str
+    opsbase: OpsbasePublicBlock
+    opsbase_url: Optional[str] = None
+    opsbase_public_key: Optional[str] = _deprecated_key_field("Deprecated alias of `opsbase.public_key`.")
+    opsbase_anon_key: Optional[str] = _deprecated_key_field("Deprecated alias of `opsbase.public_key`.")
+    public_key: Optional[str] = _deprecated_key_field("Deprecated alias of `opsbase.public_key`.")
+    anon_key: Optional[str] = _deprecated_key_field("Deprecated alias of `opsbase.public_key`.")
+    opsbase_project_id: Optional[int] = None
+    opsbase_project_slug: Optional[str] = None
+    opsbase_key_status: Optional[str] = None
+    scopes: List[str] = Field(default_factory=list)
+    env: PublicRuntimeConfigEnvVars = Field(default_factory=PublicRuntimeConfigEnvVars)
+    inject_in_html: Optional[bool] = None
+    is_active: Optional[bool] = None
+    key_sync_max_staleness_seconds: Optional[int] = Field(
+        default=None,
+        description=(
+            "Upper bound (seconds) on how stale the Opsbase key/config above can be after a "
+            "rotation on the Opsbase side — no manual sync call or redeploy is required (Item P-13d)."
+        ),
+    )
     model_config = ConfigDict(from_attributes=True)

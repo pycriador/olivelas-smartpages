@@ -521,6 +521,8 @@ class OpsBaseIntegrationService:
         """
         exact_origins = OpsBaseIntegrationService.compute_project_exact_origins(project)
         rejected_origins: List[str] = []
+        requested_extra_origins = [o for o in (extra_origins or []) if (o or "").strip()]
+        accepted_extra_origins: List[str] = []
         if extra_origins:
             for orig in extra_origins:
                 clean = (orig or "").strip().rstrip("/")
@@ -529,8 +531,23 @@ class OpsBaseIntegrationService:
                 if clean == "*" or not clean.startswith(("http://", "https://")):
                     rejected_origins.append(orig)
                     continue
+                accepted_extra_origins.append(clean)
                 if clean not in exact_origins:
                     exact_origins.append(clean)
+
+        # If the caller explicitly asked to register extra origins and every single one
+        # was rejected, the base project origins syncing fine must not be reported as a
+        # blanket "synced: true" — that reads as the caller's request having succeeded
+        # when nothing it asked for was actually honored (Item P-16).
+        if requested_extra_origins and not accepted_extra_origins:
+            raise ValidationError(
+                "None of the requested extra_origins could be registered "
+                f"(rejected: {rejected_origins}). Origins must be exact http(s):// URLs; "
+                "wildcard '*' is never accepted.",
+                field="extra_origins",
+                details={"rejected_origins": rejected_origins},
+                status_code=422,
+            )
 
         # 1. Ensure OpsPages local CorsRule table has exact origins and no active wildcard '*'
         existing_rules = db.query(CorsRule).filter(CorsRule.project_id == project.id).all()
