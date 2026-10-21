@@ -15,6 +15,37 @@ import { api, extractErrorMessage } from '../../services/api';
 import { useProjectStore } from '../../stores/useProjectStore';
 import { useUrlTableState } from '../../utils/urlState';
 
+/**
+ * Base origins that POST /projects/{id}/opsbase/cors-sync always registers.
+ * Mirrors OpsBaseIntegrationService.compute_project_exact_origins in
+ * backend/app/services/opsbase_service.py (l.260-266), which uses
+ * settings.OPSPAGES_PUBLIC_ORIGIN / OPSPAGES_FRONTEND_ORIGIN from
+ * backend/app/core/config.py (l.92-93) plus the project's custom_domain.
+ * The frontend has no endpoint exposing this list, so keep it in sync manually.
+ * Display only: the sync payload is unchanged.
+ */
+const OPSBASE_CORS_SYNC_BASE_ORIGINS = [
+  'http://localhost:8005',
+  'http://127.0.0.1:8005',
+  'http://localhost:5176',
+  'http://127.0.0.1:5176',
+];
+
+/** Same normalization the backend applies to custom_domain (https unless localhost/127.0.0.1). */
+const toExactOrigin = (raw?: string | null): string | null => {
+  const value = (raw || '').trim().replace(/\/+$/, '');
+  if (!value || value === '*' || value.toLowerCase().includes('null')) return null;
+  const withScheme = /^https?:\/\//.test(value)
+    ? value
+    : `${value.startsWith('localhost') || value.startsWith('127.0.0.1') ? 'http' : 'https'}://${value}`;
+  try {
+    const url = new URL(withScheme);
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return null;
+  }
+};
+
 const METHOD_COLORS: Record<string, string> = {
   GET: 'blue',
   HEAD: 'cyan',
@@ -75,6 +106,11 @@ export const CorsManager: React.FC = () => {
       setSubmitting(false);
     }
   };
+
+  const customDomainOrigin = toExactOrigin(activeProject?.custom_domain);
+  const syncOrigins = customDomainOrigin && !OPSBASE_CORS_SYNC_BASE_ORIGINS.includes(customDomainOrigin)
+    ? [...OPSBASE_CORS_SYNC_BASE_ORIGINS, customDomainOrigin]
+    : OPSBASE_CORS_SYNC_BASE_ORIGINS;
 
   const handleSyncCorsWithOpsBase = async () => {
     if (!activeProject) return;
@@ -144,15 +180,38 @@ export const CorsManager: React.FC = () => {
               className="w-64"
               allowClear
             />
-            <Tooltip title="Alinha automaticamente as origens do projeto (incluindo domínio próprio) no OpsPages e no OpsBase">
-              <Button
-                icon={<SyncOutlined spin={syncingOpsBaseCors} />}
-                onClick={handleSyncCorsWithOpsBase}
-                loading={syncingOpsBaseCors}
-              >
-                Alinhar CORS (OpsBase)
-              </Button>
-            </Tooltip>
+            <Popconfirm
+              title="Alinhar CORS com o OpsBase?"
+              description={
+                <div className="max-w-sm text-xs space-y-1.5" data-testid="cors-sync-confirm">
+                  <div>
+                    Serão criadas no OpsPages e no OpsBase regras com <code>allow_credentials=true</code> para:
+                  </div>
+                  <ul className="list-disc pl-4 m-0 font-mono">
+                    {syncOrigins.map((origin) => (
+                      <li key={origin}>{origin}</li>
+                    ))}
+                  </ul>
+                  {!customDomainOrigin && (
+                    <div className="text-slate-400">Nenhum domínio próprio configurado no projeto.</div>
+                  )}
+                  <div className="text-amber-600">
+                    Atenção: regras dessas origens que um administrador tenha desativado serão reativadas, e
+                    regras curinga ativas serão desativadas.
+                  </div>
+                </div>
+              }
+              okText="Confirmar alinhamento"
+              cancelText="Cancelar"
+              onConfirm={handleSyncCorsWithOpsBase}
+              disabled={syncingOpsBaseCors}
+            >
+              <Tooltip title="Alinha as origens do projeto (incluindo domínio próprio) no OpsPages e no OpsBase. Pede confirmação antes.">
+                <Button icon={<SyncOutlined spin={syncingOpsBaseCors} />} loading={syncingOpsBaseCors}>
+                  Alinhar CORS (OpsBase)
+                </Button>
+              </Tooltip>
+            </Popconfirm>
             <Button icon={<ReloadOutlined spin={loading} />} onClick={loadRules}>
               Atualizar
             </Button>
