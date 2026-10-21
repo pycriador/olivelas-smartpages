@@ -361,6 +361,8 @@ class ProjectPublicConfig(Base):
     opsbase_key_status: Mapped[str] = mapped_column(String(40), default="active", nullable=False)
     opsbase_data_plane_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
     opsbase_auth_url: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    # c4 / P-24 (round6): RLS posture reported by OpsBase discovery; None = unknown (never a fixed True).
+    opsbase_rls_enforced: Mapped[Optional[bool]] = mapped_column(Boolean, nullable=True)
     key_source: Mapped[str] = mapped_column(String(50), default="opsbase_discovery", nullable=False)
     last_synced_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     scopes: Mapped[str] = mapped_column(String(500), default="public:read,data:query,auth:session", nullable=False)

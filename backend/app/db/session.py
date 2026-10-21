@@ -142,6 +142,7 @@ def _ensure_schema_columns() -> None:
         ("opsbase_auth_url", "VARCHAR(500)"),
         ("key_source", "VARCHAR(50) NOT NULL DEFAULT 'opsbase_discovery'"),
         ("last_synced_at", "DATETIME"),
+        ("opsbase_rls_enforced", "BOOLEAN"),  # c4 / P-24 (round6): NULL = unknown
     ]
 
     with engine.begin() as conn:

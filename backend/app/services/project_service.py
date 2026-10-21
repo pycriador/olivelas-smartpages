@@ -1247,7 +1247,8 @@ jobs:
                 "project_id": opsbase_proj_id,
                 "project_slug": opsbase_slug,
                 "schema_name": opsbase_schema,
-                "rls_enforced": True,
+                # c4 / P-24 (round6): value from OpsBase discovery, None when unknown — never a fixed True.
+                "rls_enforced": getattr(cfg, "opsbase_rls_enforced", None),
                 "scopes": scopes_list,
             },
             "opsbase_url": cfg.opsbase_url,

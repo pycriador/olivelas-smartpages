@@ -842,6 +842,9 @@ class OpsBaseIntegrationService:
         discovered_key = str(discovery.get("anon_key") or "")
         discovered_key_prefix = discovery.get("key_prefix") or (discovered_key[:21] if discovered_key else None)
         discovered_key_status = str(discovery.get("key_status") or ("active" if discovered_key else "revoked"))
+        # c4 / P-24 (round6): pass OpsBase's real value through; anything that is not a boolean -> None (unknown).
+        _rls_raw = discovery.get("rls_enforced")
+        discovered_rls_enforced = _rls_raw if isinstance(_rls_raw, bool) else None
 
         now = utc_now()
         if not project.opsbase_linked_at or project.opsbase_project_id != discovered_id:
@@ -901,6 +904,7 @@ class OpsBaseIntegrationService:
                     opsbase_key_status=discovered_key_status,
                     opsbase_data_plane_url=data_plane_url,
                     opsbase_auth_url=auth_url,
+                    opsbase_rls_enforced=discovered_rls_enforced,
                     key_source="opsbase_discovery",
                     last_synced_at=now,
                     scopes="public:read,data:query,auth:session,crud:items",
@@ -919,6 +923,7 @@ class OpsBaseIntegrationService:
                 cfg.opsbase_key_status = discovered_key_status
                 cfg.opsbase_data_plane_url = data_plane_url
                 cfg.opsbase_auth_url = auth_url
+                cfg.opsbase_rls_enforced = discovered_rls_enforced
                 cfg.key_source = "opsbase_discovery"
                 cfg.last_synced_at = now
                 cfg.is_active = True
