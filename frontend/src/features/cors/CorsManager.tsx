@@ -248,11 +248,11 @@ export const CorsManager: React.FC = () => {
             <div className="lg:col-span-4">
               <Form.Item
                 name="allowed_origin"
-                label="Allowed Origin (Correspondência Exata ou *)"
+                label="Allowed Origin (correspondência exata, ex.: https://app.exemplo.com.br)"
                 rules={[{ required: true, message: 'Informe a origem permitida' }]}
                 className="mb-0"
               >
-                <Input placeholder="https://app.loft.com.br ou *" className="font-mono text-xs" />
+                <Input placeholder="https://app.exemplo.com.br" className="font-mono text-xs" />
               </Form.Item>
             </div>
 
