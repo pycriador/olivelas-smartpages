@@ -223,7 +223,7 @@ public_projects_router = APIRouter(prefix="/public/projects", tags=["Public Runt
         "The former aliases (`public_key`, `anon_key`, `opsbase_public_key`, `opsbase_anon_key`, "
         "`opsbase.publicKey`, `opsbase.anon_key`, `opsbase.anonKey`, `opsbase.keySource`, "
         "`env.OPSBASE_PUBLIC_KEY`, `env.OPSBASE_ANON_KEY`) were removed; they had been deprecated "
-        "(Item P-18) and scheduled for removal — see each field's OpenAPI `deprecated` flag. "
+        "(Item P-18) and are no longer returned; read only `opsbase.public_key`. "
         "`key_sync_max_staleness_seconds` documents the maximum delay before a key rotated "
         "on the OpsBase side is reflected here, with no manual sync call or redeploy (Item P-13d)."
     ),
