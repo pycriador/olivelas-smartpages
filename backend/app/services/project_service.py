@@ -55,9 +55,13 @@ from app.services.opsbase_service import (
 
 logger = logging.getLogger("aiops.opspages.project")
 
+# Reserved version tag for the auto-seeded placeholder build on new projects — never a
+# value a real first release would plausibly use, so it can never 409-conflict with it.
+SEED_DEPLOYMENT_VERSION = "v0.0.0-seed"
 
-def _build_welcome_static_files(project: Project) -> Dict[str, str]:
-    """Generates a polished default static build v1.0.0 when a new project is created."""
+
+def _build_welcome_static_files(project: Project, seed_version: str = SEED_DEPLOYMENT_VERSION) -> Dict[str, str]:
+    """Generates a polished default placeholder static build when a new project is created."""
     html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -86,7 +90,7 @@ def _build_welcome_static_files(project: Project) -> Dict[str, str]:
       </div>
       <div class="card">
         <span class="label">Versão Inicial</span>
-        <code id="version-tag">v1.0.0</code>
+        <code id="version-tag">{seed_version}</code>
       </div>
     </div>
     <div class="footer">
@@ -149,7 +153,7 @@ code { color: #FF774A; font-family: 'JetBrains Mono', monospace; font-size: 13px
 .footer { border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 18px; font-size: 13px; color: #64748b; }
 strong { color: #FF774A; }
 """
-    js = f"""console.log("AIOps OpsPages — Project '{project.slug}' v1.0.0 loaded successfully.");
+    js = f"""console.log("AIOps OpsPages — Project '{project.slug}' {seed_version} loaded successfully.");
 """
     return {
         "index.html": html,
@@ -371,16 +375,18 @@ class ProjectService:
         # Initialize /repos/{slug} Git repository
         GitStorageService.ensure_initialized(project)
 
-        # Seed initial v1.0.0 static build if requested
+        # Seed an initial placeholder static build if requested. Tagged with a reserved
+        # version string (never "v1.0.0") so it can never collide with the user's real
+        # first deployment, which conventionally is tagged v1.0.0.
         if req.seed_initial_build:
             try:
-                welcome_files = _build_welcome_static_files(project)
+                welcome_files = _build_welcome_static_files(project, seed_version=SEED_DEPLOYMENT_VERSION)
                 DeploymentService.deploy_from_files(
                     db=db,
                     project=project,
                     req=QuickHtmlDeployRequest(
-                        version="v1.0.0",
-                        release_notes="Initial v1.0.0 static scaffold provisioned in /repos/" + project.slug,
+                        version=SEED_DEPLOYMENT_VERSION,
+                        release_notes="Initial placeholder scaffold provisioned in /repos/" + project.slug,
                         files=welcome_files,
                     ),
                     actor=actor,
@@ -388,7 +394,7 @@ class ProjectService:
                 )
                 db.refresh(project)
             except Exception as e:
-                logger.warning(f"Failed to seed initial v1.0.0 build for {project.slug}: {e}")
+                logger.warning(f"Failed to seed initial placeholder build for {project.slug}: {e}")
 
         AuditService.log(
             db=db,
@@ -855,12 +861,17 @@ jobs:
 
         if needs_opsbase_sync and opsbase_auth_backoff.remaining(opsbase_backoff_key()) <= 0:
             try:
+                # Respect the project's own stored opt-in (set once, explicitly, at creation —
+                # see `opsbase_auto_provisioned` / P-15) instead of forcing True: this call fires
+                # on routine reads (GET .../public-config), so it must never silently auto-create
+                # or blind-slug-match an OpsBase project behind a project that never opted in.
                 OpsBaseIntegrationService.link_or_sync_project(
                     db=db,
                     project=project,
                     opsbase_project_id=project.opsbase_project_id,
-                    opsbase_project_slug=project.opsbase_project_slug or project.slug,
-                    auto_provision_if_missing=True,
+                    opsbase_project_slug=project.opsbase_project_slug,
+                    auto_provision_if_missing=project.opsbase_auto_provisioned,
+                    allow_slug_discovery=False,
                     sync_cors=not project.opsbase_cors_synced,
                 )
                 existing = (

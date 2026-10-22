@@ -488,10 +488,22 @@ class OpsBaseIntegrationService:
         opsbase_base_url: Optional[str] = None,
         opsbase_token: Optional[str] = None,
         auto_provision_if_missing: bool = True,
+        allow_slug_discovery: bool = True,
     ) -> Dict[str, Any]:
         """
         Calls OpsBase's discovery endpoint (`/api/v1/projects/{id}/public-config` or `/by-slug/{slug}/public-config`)
         to obtain the authoritative `anon_key` (`opsbase_anon_...`), URLs, schema name, and CORS allowlist.
+
+        `allow_slug_discovery` gates the by-slug lookup (step 2 below) and the "pick any project
+        with a matching slug" fallback (step 3's tail): both are a pure string match against every
+        OpsBase project this service account can see (it authenticates as OpsBase's own platform
+        superuser, so that's every project in the instance, not just ones this caller created),
+        with no ownership check. That's safe when a human explicitly supplied `opsbase_project_slug`
+        in this request — they're asserting "this specific slug is mine" — but must stay off for
+        any background/implicit sync that only has `project.slug` to go on (e.g. a routine
+        `GET .../public-config` on a project nobody has explicitly linked yet), otherwise a new
+        OpsPages project can silently get linked to — or even trigger auto-creation colliding
+        with — an unrelated OpsBase project purely because the slugs happen to match.
         """
         base_url = (opsbase_base_url or settings.OPSBASE_BASE_URL or "http://localhost:8001").strip().rstrip("/")
         if base_url.endswith("/api/v1"):
@@ -554,8 +566,9 @@ class OpsBaseIntegrationService:
                     elif resp.status_code != 404:
                         last_error = resp.text
 
-                # 2. Try by slug candidates via /by-slug/{slug}/public-config
-                if not discovery_data:
+                # 2. Try by slug candidates via /by-slug/{slug}/public-config — only when the
+                # caller explicitly supplied a slug to look up (see allow_slug_discovery docstring).
+                if not discovery_data and allow_slug_discovery and opsbase_project_slug:
                     for slug_cand in slug_candidates:
                         resp = client.get(
                             f"{base_url}/api/v1/projects/by-slug/{slug_cand}/public-config",
@@ -608,9 +621,10 @@ class OpsBaseIntegrationService:
                         logger.warning(
                             f"OpsBase auto-provision POST /api/v1/projects for '{provision_slug}' returned {create_resp.status_code}: {create_resp.text[:200]}"
                         )
-                        # Fallback: check existing projects in OpsBase via GET /api/v1/projects
-                        list_resp = client.get(f"{base_url}/api/v1/projects", headers=headers)
-                        if list_resp.status_code == 200:
+                        # Fallback: check existing projects in OpsBase via GET /api/v1/projects.
+                        # Gated by allow_slug_discovery — same blind-string-match risk as step 2.
+                        list_resp = client.get(f"{base_url}/api/v1/projects", headers=headers) if allow_slug_discovery else None
+                        if list_resp is not None and list_resp.status_code == 200:
                             proj_list = list_resp.json()
                             if isinstance(proj_list, list) and proj_list:
                                 # cors-sync-guard: only an EXACT slug match; never the first/arbitrary project
@@ -838,6 +852,7 @@ class OpsBaseIntegrationService:
         ip_address: Optional[str] = None,
         auto_provision_if_missing: bool = True,
         sync_cors: bool = True,
+        allow_slug_discovery: bool = True,
     ) -> Dict[str, Any]:
         """
         Links an OpsPages project to an OpsBase project and synchronizes the public runtime
@@ -852,6 +867,7 @@ class OpsBaseIntegrationService:
             opsbase_base_url=opsbase_base_url,
             opsbase_token=opsbase_token,
             auto_provision_if_missing=auto_provision_if_missing,
+            allow_slug_discovery=allow_slug_discovery,
         )
 
         discovered_id = int(discovery["project_id"])
