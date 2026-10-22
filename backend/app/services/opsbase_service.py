@@ -517,10 +517,33 @@ class OpsBaseIntegrationService:
         last_status: Optional[int] = None
         last_error: Optional[str] = None
 
+        # cors-sync-guard (round6 proposal): when a target id is known (explicit or already stored), discovery is
+        # PINNED to it. Any failure is fail-closed (error, pointer unchanged); never fall back to slug candidates
+        # (e.g. `aiops_crud` -> 39), never auto-provision, never pick another project.
+        if target_id:
+            try:
+                with httpx.Client(timeout=8.0, trust_env=False) as client:
+                    resp = client.get(f"{base_url}/api/v1/projects/{int(target_id)}/public-config", headers=headers)
+            except Exception as exc:
+                raise ValidationError(
+                    f"OpsBase discovery for pinned project ID={target_id} failed ({base_url}): {exc}. Pointer unchanged."
+                )
+            if resp.status_code != 200:
+                if resp.status_code == 404:
+                    raise NotFoundError(f"OpsBase project ID={target_id} not found ({base_url}). Pointer unchanged.")
+                raise ValidationError(
+                    f"OpsBase discovery for pinned project ID={target_id} returned HTTP {resp.status_code}. Pointer unchanged."
+                )
+            discovery_data = resp.json()
+            if int(discovery_data.get("project_id") or 0) != int(target_id):
+                raise ValidationError(
+                    f"OpsBase discovery returned project_id={discovery_data.get('project_id')} for pinned ID={target_id}."
+                )
+
         try:
             with httpx.Client(timeout=8.0, trust_env=False) as client:
                 # 1. If caller explicitly passed opsbase_project_id, try it first
-                if opsbase_project_id is not None:
+                if not discovery_data and opsbase_project_id is not None:
                     resp = client.get(
                         f"{base_url}/api/v1/projects/{opsbase_project_id}/public-config",
                         headers=headers,
@@ -590,15 +613,13 @@ class OpsBaseIntegrationService:
                         if list_resp.status_code == 200:
                             proj_list = list_resp.json()
                             if isinstance(proj_list, list) and proj_list:
-                                matched_proj = None
-                                for p_item in proj_list:
-                                    p_slug = str(p_item.get("slug") or "").lower()
-                                    if p_slug in slug_candidates or target_slug in p_slug or p_slug in target_slug:
-                                        matched_proj = p_item
-                                        break
-                                if not matched_proj:
-                                    matched_proj = proj_list[0]
-                                matched_id = matched_proj.get("id")
+                                # cors-sync-guard: only an EXACT slug match; never the first/arbitrary project
+                                # (the old `proj_list[0]` / substring fallback could link an unrelated project).
+                                matched_proj = next(
+                                    (p for p in proj_list if str(p.get("slug") or "").lower() in slug_candidates),
+                                    None,
+                                )
+                                matched_id = (matched_proj or {}).get("id")
                                 if matched_id:
                                     disc_resp = client.get(
                                         f"{base_url}/api/v1/projects/{matched_id}/public-config",

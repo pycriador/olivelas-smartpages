@@ -91,6 +91,9 @@ class Settings(BaseSettings):
     OPSBASE_PUBLIC_CONFIG_SYNC_TTL_SECONDS: int = 10
     OPSPAGES_PUBLIC_ORIGIN: str = "http://localhost:8005"
     OPSPAGES_FRONTEND_ORIGIN: str = "http://localhost:5176"
+    # round6 proposal (cors-sync-guard): the startup loop no longer pushes CORS origins to OpsBase unless
+    # explicitly enabled. Linking (`POST /projects/{id}/opsbase/link`) still honours its own `sync_cors` flag.
+    OPSPAGES_STARTUP_CORS_SYNC: bool = False
 
     def get_default_opsbase_url_for_env(self, environment: str = "production") -> str:
         env = (environment or "production").strip().lower()

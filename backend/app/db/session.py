@@ -245,11 +245,13 @@ def init_meta_db() -> None:
                 OpsBaseIntegrationService.link_or_sync_project(
                     db=db,
                     project=proj,
-                    opsbase_project_id=None,
+                    # cors-sync-guard: an already-linked project re-syncs its PINNED id only (no slug
+                    # fallback, no auto-provision); only never-linked projects may still be provisioned.
+                    opsbase_project_id=proj.opsbase_project_id,
                     opsbase_project_slug=proj.opsbase_project_slug or proj.slug,
                     actor_email=default_email,
-                    auto_provision_if_missing=True,
-                    sync_cors=True,
+                    auto_provision_if_missing=not proj.opsbase_project_id,
+                    sync_cors=settings.OPSPAGES_STARTUP_CORS_SYNC,
                 )
             except Exception as sync_exc:
                 # P-22: an auth backoff is logged once per window by the backoff itself.
