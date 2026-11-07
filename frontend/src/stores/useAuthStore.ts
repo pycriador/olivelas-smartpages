@@ -15,7 +15,18 @@ export interface UserInfo {
   full_name: string;
   is_active: boolean;
   is_superuser: boolean;
+  preferred_theme?: string;
+  preferred_language?: string;
   groups: GroupInfo[];
+}
+
+export interface BootstrapStatusInfo {
+  has_users: boolean;
+  user_count: number;
+  project_count: number;
+  next_user_will_be_global_admin: boolean;
+  schema: string;
+  settings?: Record<string, any>;
 }
 
 interface AuthState {
@@ -23,8 +34,16 @@ interface AuthState {
   user: UserInfo | null;
   isAuthenticated: boolean;
   showLogin: boolean;
+  bootstrapStatus: BootstrapStatusInfo | null;
   setShowLogin: (show: boolean) => void;
+  fetchBootstrapStatus: () => Promise<BootstrapStatusInfo | null>;
   login: (usernameOrEmail: string, password: string) => Promise<void>;
+  register: (params: {
+    email: string;
+    full_name: string;
+    password: string;
+    username?: string;
+  }) => Promise<{ is_first_user_global_admin: boolean }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -43,7 +62,18 @@ export const useAuthStore = create<AuthState>((set) => ({
   user: parsedUser,
   isAuthenticated: Boolean(storedToken && parsedUser),
   showLogin: false,
+  bootstrapStatus: null,
   setShowLogin: (show: boolean) => set({ showLogin: show }),
+
+  fetchBootstrapStatus: async () => {
+    try {
+      const res = await api.get('/auth/bootstrap-status');
+      set({ bootstrapStatus: res.data });
+      return res.data as BootstrapStatusInfo;
+    } catch {
+      return null;
+    }
+  },
 
   login: async (usernameOrEmail: string, password: string) => {
     const res = await api.post('/auth/login', {
@@ -59,6 +89,25 @@ export const useAuthStore = create<AuthState>((set) => ({
       isAuthenticated: true,
       showLogin: false,
     });
+  },
+
+  register: async ({ email, full_name, password, username }) => {
+    const res = await api.post('/auth/register', {
+      email,
+      full_name,
+      password,
+      username,
+    });
+    const { access_token, user, is_first_user_global_admin } = res.data;
+    localStorage.setItem('opspages_access_token', access_token);
+    localStorage.setItem('opspages_user', JSON.stringify(user));
+    set({
+      token: access_token,
+      user,
+      isAuthenticated: true,
+      showLogin: false,
+    });
+    return { is_first_user_global_admin: Boolean(is_first_user_global_admin) };
   },
 
   logout: () => {

@@ -37,6 +37,8 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(String(255), default="")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    preferred_theme: Mapped[str] = mapped_column(String(80), default="loft-obsidian", nullable=False)
+    preferred_language: Mapped[str] = mapped_column(String(16), default="pt-BR", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
 
@@ -443,3 +445,76 @@ class AuditLog(Base):
             return json.loads(self.diff_payload)
         except Exception:
             return None
+
+
+class PlatformSetting(Base):
+    """
+    Platform-wide Configurations & Personalization Settings stored in `opspages_platform_settings`.
+    """
+    __tablename__ = "opspages_platform_settings"
+
+    key: Mapped[str] = mapped_column(String(120), primary_key=True)
+    category: Mapped[str] = mapped_column(String(80), default="general", nullable=False)
+    value_json: Mapped[str] = mapped_column(Text, default="{}", nullable=False)
+    description: Mapped[str] = mapped_column(String(500), default="", nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+
+    def get_value(self) -> Dict[str, Any]:
+        if not self.value_json:
+            return {}
+        try:
+            parsed = json.loads(self.value_json)
+            return parsed if isinstance(parsed, dict) else {"value": parsed}
+        except Exception:
+            return {}
+
+    def set_value(self, data: Dict[str, Any]) -> None:
+        self.value_json = json.dumps(data or {}, ensure_ascii=False)
+
+
+class PlatformTheme(Base):
+    """
+    Platform Visual Themes Catalog (Light & Dark Customizations) stored in `opspages_themes`.
+    """
+    __tablename__ = "opspages_themes"
+
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    name: Mapped[str] = mapped_column(String(150), nullable=False)
+    type: Mapped[str] = mapped_column(String(16), default="dark", nullable=False)
+    is_dark: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    primary_color: Mapped[str] = mapped_column(String(32), nullable=False)
+    primary_hover: Mapped[str] = mapped_column(String(32), nullable=False)
+    primary_active: Mapped[str] = mapped_column(String(32), nullable=False)
+    bg_layout: Mapped[str] = mapped_column(String(32), nullable=False)
+    bg_container: Mapped[str] = mapped_column(String(32), nullable=False)
+    bg_sidebar: Mapped[str] = mapped_column(String(32), nullable=False)
+    bg_header: Mapped[str] = mapped_column(String(32), nullable=False)
+    color_text: Mapped[str] = mapped_column(String(32), nullable=False)
+    color_border: Mapped[str] = mapped_column(String(32), nullable=False)
+    badge_tag: Mapped[str] = mapped_column(String(32), nullable=False)
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class ReleaseFile(Base):
+    """
+    Release Build Files stored in `opspages_release_files` for Static Explorer & Serverless Preview.
+    """
+    __tablename__ = "opspages_release_files"
+    __table_args__ = (
+        UniqueConstraint("deployment_id", "relative_path", name="uq_opspages_deployment_relpath"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    deployment_id: Mapped[int] = mapped_column(
+        ForeignKey("opspages_deployments.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("opspages_projects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    relative_path: Mapped[str] = mapped_column(String(512), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(120), default="text/plain", nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    content_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

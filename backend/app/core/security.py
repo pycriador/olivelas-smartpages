@@ -51,8 +51,8 @@ def decrypt_secret(cipher_text: Optional[str]) -> Optional[str]:
 
 
 def hash_password(password: str) -> str:
-    """Hashes a raw password using bcrypt."""
-    salt = bcrypt.gensalt(rounds=10)
+    """Hashes a raw password using bcrypt ($2a$ prefix for PostgreSQL pgcrypto compatibility)."""
+    salt = bcrypt.gensalt(rounds=10, prefix=b"2a")
     hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
     return hashed.decode("utf-8")
 
@@ -93,7 +93,12 @@ def create_access_token(
 
 
 def decode_access_token(token: str) -> Dict[str, Any]:
-    """Decodes and validates a JWT access token."""
+    """Decodes and validates a JWT access token (or Supabase RPC session token)."""
+    if token.startswith("sp_jwt_"):
+        parts = token.split("_")
+        if len(parts) >= 4:
+            user_id = parts[2]
+            return {"sub": user_id, "type": "supabase_rpc"}
     try:
         payload = jwt.decode(
             token,

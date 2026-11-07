@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import os
 import socket
+import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import httpx
 import pytest

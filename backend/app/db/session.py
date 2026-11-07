@@ -1,18 +1,28 @@
 """
-Database session management for AIOps OpsPages.
-Supports SQLite, PostgreSQL, and MariaDB/MySQL.
-Initializes tables and seeds initial Super Admin (willian.jesus@loft.com.br) and HBAC system groups.
+Database session management for Olivelas SmartPages (AIOps OpsPages).
+Supports Supabase PostgreSQL (isolated `smartpages` schema), SQLite, and MariaDB/MySQL.
+Initializes tables and seeds ONLY platform configurations, HBAC role groups, and visual themes.
+Users and projects start empty so the first user registered becomes the Global Admin.
 """
 from __future__ import annotations
 
+import json
 import logging
 from typing import Generator
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import create_engine, event, inspect, text
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import settings
 from app.core.security import hash_password
-from app.models.meta_models import Base, ErrorReport, Group, Project, ProjectPublicConfig, User
+from app.models.meta_models import (
+    Base,
+    Group,
+    PlatformSetting,
+    PlatformTheme,
+    Project,
+    ProjectPublicConfig,
+    User,
+)
 
 logger = logging.getLogger("aiops.opspages.db")
 
@@ -23,6 +33,7 @@ engine_kwargs = {}
 if db_url.startswith("sqlite"):
     connect_args["check_same_thread"] = False
 elif db_url.startswith("postgresql"):
+    schema_name = (settings.DB_SCHEMA or "smartpages").strip()
     connect_args.update(
         {
             "connect_timeout": 10,
@@ -30,12 +41,13 @@ elif db_url.startswith("postgresql"):
             "keepalives_idle": 30,
             "keepalives_interval": 10,
             "keepalives_count": 5,
+            "options": f"-c search_path={schema_name},public,extensions",
         }
     )
     engine_kwargs.update(
         {
-            "pool_size": 15,
-            "max_overflow": 20,
+            "pool_size": 10,
+            "max_overflow": 15,
             "pool_recycle": 600,
             "pool_pre_ping": True,
         }
@@ -48,8 +60,8 @@ elif db_url.startswith("mysql") or db_url.startswith("mariadb"):
     )
     engine_kwargs.update(
         {
-            "pool_size": 15,
-            "max_overflow": 20,
+            "pool_size": 10,
+            "max_overflow": 15,
             "pool_recycle": 600,
             "pool_pre_ping": True,
         }
@@ -60,6 +72,15 @@ engine = create_engine(
     connect_args=connect_args,
     **engine_kwargs,
 )
+
+if db_url.startswith("postgresql"):
+    @event.listens_for(engine, "connect")
+    def _set_postgres_search_path(dbapi_connection, connection_record) -> None:
+        schema_name = (settings.DB_SCHEMA or "smartpages").strip()
+        cursor = dbapi_connection.cursor()
+        cursor.execute(f"SET search_path TO {schema_name}, public, extensions")
+        cursor.close()
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, expire_on_commit=False, bind=engine)
 
@@ -74,10 +95,11 @@ def get_meta_db() -> Generator[Session, None, None]:
 
 
 def get_db_engine_info() -> dict:
-    """Returns diagnostic info about the active database dialect and connection."""
+    """Returns diagnostic info about the active database dialect, schema, and connection."""
     dialect = engine.dialect.name
     ok = False
     error_msg = None
+    active_schema = settings.DB_SCHEMA if dialect == "postgresql" else "default"
     try:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
@@ -88,106 +110,156 @@ def get_db_engine_info() -> dict:
     return {
         "dialect": dialect,
         "driver": engine.dialect.driver,
+        "schema": active_schema,
         "connected": ok,
         "error": error_msg,
         "supported_engines": ["sqlite", "postgresql", "mariadb"],
         "repos_root": str(settings.repos_root_path),
+        "supabase_url": settings.VITE_SUPABASE_URL,
     }
 
 
+DEFAULT_PLATFORM_SETTINGS = [
+    (
+        "platform.identity",
+        "branding",
+        {
+            "app_name": "Olivelas SmartPages — Static Hosting & Governance",
+            "short_name": "SmartPages",
+            "organization": "Olivelas / Loft Engineering",
+            "tagline": "Plataforma Corporativa de Publicação Estática, Versionamento Git e Governança HBAC",
+            "repository_url": "https://github.com/pycriador/olivelas-smartpages",
+            "schema": settings.DB_SCHEMA or "smartpages",
+        },
+        "Identidade institucional e metadados da plataforma",
+    ),
+    (
+        "platform.appearance",
+        "personalization",
+        {
+            "default_theme_id": "loft-obsidian",
+            "default_light_theme_id": "loft-classic",
+            "default_dark_theme_id": "loft-obsidian",
+            "default_language": "pt-BR",
+            "supported_languages": ["pt-BR", "en-US", "es-ES"],
+            "allow_user_theme_override": True,
+            "allow_user_language_override": True,
+        },
+        "Personalizações visuais padrão (tema claro/escuro e internacionalização i18n)",
+    ),
+    (
+        "platform.auth_policy",
+        "security",
+        {
+            "first_user_is_global_admin": True,
+            "allow_self_registration": True,
+            "default_self_register_role": "viewer",
+            "jwt_expire_minutes": settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+            "min_password_length": 6,
+        },
+        "Políticas de autenticação e promoção automática do primeiro cadastro para Global Admin",
+    ),
+    (
+        "platform.default_quotas",
+        "governance",
+        {
+            "max_build_size_mb": settings.DEFAULT_MAX_BUILD_SIZE_MB,
+            "max_storage_mb": settings.DEFAULT_MAX_STORAGE_MB,
+            "max_deploys_per_day": settings.DEFAULT_MAX_DEPLOYS_PER_DAY,
+            "max_retained_versions": settings.DEFAULT_MAX_RETAINED_VERSIONS,
+            "default_spa_mode": True,
+            "default_auto_approval": True,
+        },
+        "Quotas e limites operacionais padrão aplicados a novos projetos",
+    ),
+    (
+        "platform.default_cors_csp",
+        "security",
+        {
+            "origin": "*",
+            "allowed_methods": "GET,HEAD,OPTIONS",
+            "allowed_headers": "*",
+            "allow_credentials": False,
+            "x_frame_options": "SAMEORIGIN",
+            "referrer_policy": "strict-origin-when-cross-origin",
+        },
+        "Regras padrão de CORS e Content-Security-Policy para projetos publicados",
+    ),
+]
+
+DEFAULT_THEMES = [
+    ("loft-classic", "Loft Classic (Laranja Copan)", "light", False, "#F56738", "#D94616", "#B83208", "#F4F7F9", "#FFFFFF", "#121619", "#FFFFFF", "#1A2024", "#E1E9EF", "#F56738", False, 1),
+    ("emerald-supabase", "Emerald Supabase", "light", False, "#24B47E", "#1EA06E", "#17855B", "#F6FBF8", "#FFFFFF", "#0E1E17", "#FFFFFF", "#182C23", "#D2EDE0", "#24B47E", False, 2),
+    ("sapphire-tech", "Sapphire Tech (Azul Corporativo)", "light", False, "#1677FF", "#4096FF", "#0958D9", "#F4F8FC", "#FFFFFF", "#0A1626", "#FFFFFF", "#102A45", "#D0E2FF", "#1677FF", False, 3),
+    ("royal-violet", "Royal Violet (Roxo Real)", "light", False, "#722ED1", "#9254DE", "#531DAB", "#F8F6FD", "#FFFFFF", "#1A0E2E", "#FFFFFF", "#22075E", "#EFDBFF", "#722ED1", False, 4),
+    ("sunset-coral", "Sunset Coral (Coral Vibrante)", "light", False, "#FF5722", "#FF7043", "#E64A19", "#FFF7F4", "#FFFFFF", "#26120D", "#FFFFFF", "#2B130E", "#FFDCCF", "#FF5722", False, 5),
+    ("nordic-teal", "Nordic Teal (Turquesa Nórdico)", "light", False, "#13C2C2", "#36CFC9", "#08979C", "#F2FCFC", "#FFFFFF", "#092121", "#FFFFFF", "#002329", "#B5F5EC", "#13C2C2", False, 6),
+    ("rose-berry", "Rose Berry (Rosa Moderno)", "light", False, "#EB2F96", "#F759AB", "#C41D7F", "#FDF4F8", "#FFFFFF", "#260B1B", "#FFFFFF", "#3B0A26", "#FFD6E7", "#EB2F96", False, 7),
+    ("amber-gold", "Amber Gold (Dourado Âmbar)", "light", False, "#FAAD14", "#FFC53D", "#D48806", "#FDFBF2", "#FFFFFF", "#241D09", "#FFFFFF", "#362602", "#FFE58F", "#FAAD14", False, 8),
+    ("forest-mint", "Forest Mint (Verde Floresta)", "light", False, "#52C41A", "#73D13D", "#389E0D", "#F6FCF2", "#FFFFFF", "#102409", "#FFFFFF", "#132B09", "#D9F7BE", "#52C41A", False, 9),
+    ("slate-graphite", "Slate Graphite (Grafite Executivo)", "light", False, "#4A5568", "#718096", "#2D3748", "#F7FAFC", "#FFFFFF", "#1A202C", "#FFFFFF", "#1A202C", "#E2E8F0", "#4A5568", False, 10),
+    ("loft-obsidian", "Loft Obsidian (Escuro Copan)", "dark", True, "#F56738", "#FF8155", "#D94616", "#0E1216", "#141A1E", "#0A0D10", "#141A1E", "#F0F4F8", "#2A3640", "#F56738", True, 11),
+    ("supabase-midnight", "Supabase Midnight", "dark", True, "#24B47E", "#33D998", "#1EA06E", "#121212", "#1C1C1C", "#0D0D0D", "#1C1C1C", "#EDEDED", "#2E2E2E", "#24B47E", False, 12),
+    ("cyberpunk-neon", "Cyberpunk Neon", "dark", True, "#00F0FF", "#38F4FF", "#00C3CF", "#0B0F19", "#111827", "#070A11", "#111827", "#F3F4F6", "#1F2937", "#00F0FF", False, 13),
+    ("synthwave-violet", "Synthwave Violet", "dark", True, "#BD34FE", "#D369FF", "#9A15DC", "#130B24", "#1E1235", "#0C0617", "#1E1235", "#F5F3FF", "#341E5C", "#BD34FE", False, 14),
+    ("tokyo-night", "Tokyo Night", "dark", True, "#7AA2F7", "#96B7FA", "#5485E8", "#1A1B26", "#24283B", "#13141C", "#24283B", "#C0CAF5", "#2F354D", "#7AA2F7", False, 15),
+    ("dracula-classic", "Dracula Classic", "dark", True, "#FF79C6", "#FF94D2", "#E05AA7", "#21222C", "#282A36", "#191A21", "#282A36", "#F8F8F2", "#44475A", "#FF79C6", False, 16),
+    ("nord-deep-sea", "Nord Deep Sea", "dark", True, "#88C0D0", "#A3D4E2", "#6CA8B9", "#242933", "#2E3440", "#1B1F27", "#2E3440", "#ECEFF4", "#434C5E", "#88C0D0", False, 17),
+    ("matrix-green", "Matrix Terminal", "dark", True, "#00FF66", "#33FF85", "#00D655", "#0A0E0C", "#101713", "#060907", "#101713", "#D1FADF", "#1A2920", "#00FF66", False, 18),
+    ("catppuccin-mocha", "Catppuccin Mocha", "dark", True, "#F5C2E7", "#FAD8F0", "#E5A4D4", "#181825", "#1E1E2E", "#11111B", "#1E1E2E", "#CDD6F4", "#313244", "#F5C2E7", False, 19),
+    ("monokai-amber", "Monokai Amber", "dark", True, "#F59E0B", "#FBBF24", "#D97706", "#141416", "#1D1E22", "#0C0D0E", "#1D1E22", "#F3F4F6", "#33353D", "#F59E0B", False, 20),
+]
+
+
 def _ensure_schema_columns() -> None:
-    """Safely adds newly introduced columns to existing SQLite/PostgreSQL/MariaDB tables."""
+    """Safely adds newly introduced columns to existing tables."""
     inspector = inspect(engine)
     existing_tables = set(inspector.get_table_names())
 
-    project_migrations = [
-        ("html_cache_control", "VARCHAR(255) NOT NULL DEFAULT 'no-cache, max-age=0, must-revalidate'"),
-        ("hashed_asset_cache_control", "VARCHAR(255) NOT NULL DEFAULT 'public, max-age=31536000, immutable'"),
-        ("asset_cache_control", "VARCHAR(255) NOT NULL DEFAULT 'public, max-age=3600'"),
-        (
-            "csp_policy",
-            "TEXT NOT NULL DEFAULT \"default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https: http:; font-src 'self' data: https://fonts.gstatic.com https:; connect-src 'self' http://localhost:* http://127.0.0.1:* https: ws: wss:; frame-ancestors 'self'; base-uri 'self'; object-src 'none'\"",
-        ),
-        ("x_frame_options", "VARCHAR(50) NOT NULL DEFAULT 'SAMEORIGIN'"),
-        ("referrer_policy", "VARCHAR(100) NOT NULL DEFAULT 'strict-origin-when-cross-origin'"),
-        ("hsts_max_age", "INTEGER NOT NULL DEFAULT 31536000"),
-        ("nosniff_enabled", "BOOLEAN NOT NULL DEFAULT 1"),
-        ("permissions_policy", "VARCHAR(255) NOT NULL DEFAULT 'camera=(), microphone=(), geolocation=()'"),
-        ("opsbase_project_id", "INTEGER"),
-        ("opsbase_project_slug", "VARCHAR(150)"),
-        ("opsbase_schema_name", "VARCHAR(150)"),
-        ("opsbase_linked_at", "DATETIME"),
-        ("opsbase_last_synced_at", "DATETIME"),
-        ("opsbase_key_status", "VARCHAR(40) NOT NULL DEFAULT 'active'"),
-        ("opsbase_key_prefix", "VARCHAR(80)"),
-        ("opsbase_cors_synced", "BOOLEAN NOT NULL DEFAULT 0"),
-        ("opsbase_allowed_origins_json", "TEXT NOT NULL DEFAULT '[]'"),
-        ("opsbase_auto_provisioned", "BOOLEAN NOT NULL DEFAULT 0"),
-    ]
-
-    cors_migrations = [
-        ("allow_credentials", "BOOLEAN NOT NULL DEFAULT 0"),
-        ("max_age_seconds", "INTEGER NOT NULL DEFAULT 3600"),
-        ("updated_at", "DATETIME"),
-        ("created_by_email", "VARCHAR(255)"),
-        ("updated_by_email", "VARCHAR(255)"),
-    ]
-
-    public_config_migrations = [
-        ("opsbase_project_id", "INTEGER"),
-        ("opsbase_schema_name", "VARCHAR(150)"),
-        ("opsbase_key_prefix", "VARCHAR(80)"),
-        ("opsbase_key_status", "VARCHAR(40) NOT NULL DEFAULT 'active'"),
-        ("opsbase_data_plane_url", "VARCHAR(500)"),
-        ("opsbase_auth_url", "VARCHAR(500)"),
-        ("key_source", "VARCHAR(50) NOT NULL DEFAULT 'opsbase_discovery'"),
-        ("last_synced_at", "DATETIME"),
-        ("opsbase_rls_enforced", "BOOLEAN"),  # c4 / P-24 (round6): NULL = unknown
+    user_migrations = [
+        ("preferred_theme", "VARCHAR(80) NOT NULL DEFAULT 'loft-obsidian'"),
+        ("preferred_language", "VARCHAR(16) NOT NULL DEFAULT 'pt-BR'"),
     ]
 
     with engine.begin() as conn:
-        if "opspages_projects" in existing_tables:
-            existing_cols = {c["name"] for c in inspector.get_columns("opspages_projects")}
-            for col_name, col_ddl in project_migrations:
+        if "opspages_users" in existing_tables:
+            existing_cols = {c["name"] for c in inspector.get_columns("opspages_users")}
+            for col_name, col_ddl in user_migrations:
                 if col_name not in existing_cols:
-                    conn.execute(text(f"ALTER TABLE opspages_projects ADD COLUMN {col_name} {col_ddl}"))
-                    logger.info(f"Migrated column opspages_projects.{col_name}")
-
-        if "opspages_cors_rules" in existing_tables:
-            existing_cols = {c["name"] for c in inspector.get_columns("opspages_cors_rules")}
-            for col_name, col_ddl in cors_migrations:
-                if col_name not in existing_cols:
-                    conn.execute(text(f"ALTER TABLE opspages_cors_rules ADD COLUMN {col_name} {col_ddl}"))
-                    logger.info(f"Migrated column opspages_cors_rules.{col_name}")
-            # Ensure wildcard '*' rules never have allow_credentials=1
-            conn.execute(text("UPDATE opspages_cors_rules SET allow_credentials = 0 WHERE origin = '*'"))
-
-        if "opspages_public_configs" in existing_tables:
-            existing_cols = {c["name"] for c in inspector.get_columns("opspages_public_configs")}
-            for col_name, col_ddl in public_config_migrations:
-                if col_name not in existing_cols:
-                    conn.execute(text(f"ALTER TABLE opspages_public_configs ADD COLUMN {col_name} {col_ddl}"))
-                    logger.info(f"Migrated column opspages_public_configs.{col_name}")
+                    conn.execute(text(f"ALTER TABLE opspages_users ADD COLUMN {col_name} {col_ddl}"))
+                    logger.info(f"Migrated column opspages_users.{col_name}")
 
 
 def init_meta_db() -> None:
-    """Creates all metadata tables and seeds default HBAC groups and Super Admin willian.jesus@loft.com.br."""
+    """
+    Creates all metadata tables in the target schema and seeds:
+    1. Default HBAC role groups (Platform Admins, Frontend Editors, Project Viewers)
+    2. Platform settings (`opspages_platform_settings`)
+    3. 20 Visual Themes (`opspages_themes`)
+    Note: Does NOT seed default users or projects unless explicit bootstrap env vars are passed.
+    """
+    if engine.dialect.name == "postgresql":
+        schema_name = (settings.DB_SCHEMA or "smartpages").strip()
+        with engine.begin() as conn:
+            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {schema_name}"))
+
     Base.metadata.create_all(bind=engine)
     _ensure_schema_columns()
     settings.repos_root_path.mkdir(parents=True, exist_ok=True)
 
     db = SessionLocal()
     try:
-        # 1. Seed default HBAC groups (Admin, Editor, Viewer)
+        # 1. Seed default HBAC groups (Admin, Editor, Viewer) in a single query
         default_group_specs = [
-            ("Platform Admins", "Acesso administrativo total à plataforma AIOps OpsPages", "admin"),
+            ("Platform Admins", "Acesso administrativo total à plataforma Olivelas SmartPages (Global Admin)", "admin"),
             ("Frontend Editors", "Upload de builds, aprovação, rollback, versionamento Git e gestão de páginas", "editor"),
             ("Project Viewers", "Acesso de visualização às builds, histórico Git, arquivos e páginas publicadas", "viewer"),
         ]
 
+        existing_groups = {g.name: g for g in db.query(Group).all()}
         admin_group = None
         for g_name, g_desc, g_role in default_group_specs:
-            grp = db.query(Group).filter(Group.name == g_name).first()
+            grp = existing_groups.get(g_name)
             if not grp:
                 grp = Group(name=g_name, description=g_desc, role_level=g_role)
                 db.add(grp)
@@ -195,141 +267,77 @@ def init_meta_db() -> None:
                 logger.info(f"Seeded HBAC group: {g_name} ({g_role})")
             if g_role == "admin" and admin_group is None:
                 admin_group = grp
+
+        # 2. Seed Platform Settings (`opspages_platform_settings`) in a single query
+        existing_setting_keys = {r[0] for r in db.query(PlatformSetting.key).all()}
+        for key, category, val_dict, desc in DEFAULT_PLATFORM_SETTINGS:
+            if key not in existing_setting_keys:
+                db.add(
+                    PlatformSetting(
+                        key=key,
+                        category=category,
+                        value_json=json.dumps(val_dict, ensure_ascii=False),
+                        description=desc,
+                    )
+                )
+
+        # 3. Seed 20 Visual Themes (`opspages_themes`) in a single query
+        existing_theme_ids = {r[0] for r in db.query(PlatformTheme.id).all()}
+        for (
+            t_id, t_name, t_type, t_dark,
+            p_col, p_hov, p_act,
+            bg_lay, bg_con, bg_sid, bg_hea,
+            c_txt, c_bor, b_tag,
+            is_def, s_ord
+        ) in DEFAULT_THEMES:
+            if t_id not in existing_theme_ids:
+                db.add(
+                    PlatformTheme(
+                        id=t_id,
+                        name=t_name,
+                        type=t_type,
+                        is_dark=t_dark,
+                        primary_color=p_col,
+                        primary_hover=p_hov,
+                        primary_active=p_act,
+                        bg_layout=bg_lay,
+                        bg_container=bg_con,
+                        bg_sidebar=bg_sid,
+                        bg_header=bg_hea,
+                        color_text=c_txt,
+                        color_border=c_bor,
+                        badge_tag=b_tag,
+                        is_default=is_def,
+                        sort_order=s_ord,
+                    )
+                )
         db.commit()
 
-        # 2. Ensure default Super Admin (willian.jesus@loft.com.br) is registered
+        # 4. Optional explicit bootstrap admin (only if explicitly set in env, e.g. automated test fixtures)
         default_email = (settings.DEFAULT_SUPERADMIN_EMAIL or settings.BOOTSTRAP_ADMIN_EMAIL).strip().lower()
         default_username = (settings.DEFAULT_SUPERADMIN_USERNAME or settings.BOOTSTRAP_ADMIN_USERNAME).strip().lower()
         default_name = (settings.DEFAULT_SUPERADMIN_NAME or settings.BOOTSTRAP_ADMIN_NAME).strip()
         default_pwd = settings.effective_superadmin_password
 
-        super_user = db.query(User).filter(
-            (User.email == default_email) | (User.username == default_username)
-        ).first()
-
-        if not super_user and default_pwd:
-            logger.info(f"Seeding default Super Admin '{default_email}' from .env...")
-            super_user = User(
-                username=default_username,
-                email=default_email,
-                hashed_password=hash_password(default_pwd),
-                full_name=default_name,
-                is_active=True,
-                is_superuser=True,
-            )
-            if admin_group:
-                super_user.groups = [admin_group]
-            db.add(super_user)
-            db.commit()
-            logger.info(f"Default Super Admin '{default_email}' created successfully.")
-        elif super_user:
-            updated = False
-            if not super_user.is_superuser:
-                super_user.is_superuser = True
-                updated = True
-            if not super_user.is_active:
-                super_user.is_active = True
-                updated = True
-            if admin_group and all(g.id != admin_group.id for g in super_user.groups):
-                super_user.groups.append(admin_group)
-                updated = True
-            if updated:
-                db.commit()
-
-        # 3. Ensure all existing projects are linked & synced with OpsBase Discovery (Part 2 - P-13)
-        from app.services.opsbase_service import OpsBaseIntegrationService, VALID_PUBLIC_CONFIG_ENVIRONMENTS
-
-        projects = db.query(Project).all()
-        for proj in projects:
-            try:
-                OpsBaseIntegrationService.link_or_sync_project(
-                    db=db,
-                    project=proj,
-                    # cors-sync-guard: an already-linked project re-syncs its PINNED id only (no slug
-                    # fallback, no auto-provision); only never-linked projects may still be provisioned.
-                    opsbase_project_id=proj.opsbase_project_id,
-                    opsbase_project_slug=proj.opsbase_project_slug or proj.slug,
-                    actor_email=default_email,
-                    auto_provision_if_missing=not proj.opsbase_project_id,
-                    sync_cors=settings.OPSPAGES_STARTUP_CORS_SYNC,
+        if default_email and default_pwd:
+            if not default_username:
+                default_username = default_email.split("@")[0]
+            super_user = db.query(User).filter(
+                (User.email == default_email) | (User.username == default_username)
+            ).first()
+            if not super_user:
+                super_user = User(
+                    username=default_username,
+                    email=default_email,
+                    hashed_password=hash_password(default_pwd),
+                    full_name=default_name or default_username,
+                    is_active=True,
+                    is_superuser=True,
                 )
-            except Exception as sync_exc:
-                # P-22: an auth backoff is logged once per window by the backoff itself.
-                if getattr(sync_exc, "code", None) != "OPSBASE_AUTH_BACKOFF":
-                    logger.warning(f"OpsBase discovery sync skipped during startup for '{proj.slug}': {sync_exc}")
-                # Ensure all 4 environments exist with default URL http://localhost:8001/api/v1 and NO fake placeholder keys
-                for env_name in VALID_PUBLIC_CONFIG_ENVIRONMENTS:
-                    existing_cfg = (
-                        db.query(ProjectPublicConfig)
-                        .filter(
-                            ProjectPublicConfig.project_id == proj.id,
-                            ProjectPublicConfig.environment == env_name,
-                        )
-                        .first()
-                    )
-                    if not existing_cfg:
-                        cfg = ProjectPublicConfig(
-                            project_id=proj.id,
-                            environment=env_name,
-                            opsbase_url=settings.OPSBASE_DEFAULT_API_URL,
-                            opsbase_public_key="",
-                            opsbase_project_slug=proj.slug,
-                            opsbase_key_status="unlinked",
-                            key_source="opsbase_discovery",
-                            scopes="public:read,data:query,auth:session,crud:items",
-                            inject_in_html=True,
-                            is_active=True,
-                            updated_by_email=default_email,
-                        )
-                        cfg.set_public_vars({})
-                        db.add(cfg)
-                    else:
-                        if existing_cfg.opsbase_url.startswith("http://localhost:8000"):
-                            existing_cfg.opsbase_url = settings.OPSBASE_DEFAULT_API_URL
-                        is_bad, _ = OpsBaseIntegrationService.is_placeholder_or_forbidden_key(
-                            existing_cfg.opsbase_public_key
-                        )
-                        if is_bad:
-                            existing_cfg.opsbase_public_key = ""
-                            existing_cfg.opsbase_key_status = "unlinked"
+                if admin_group:
+                    super_user.groups = [admin_group]
+                db.add(super_user)
                 db.commit()
-
-        # 4. Seed initial diagnostic/telemetry ErrorReport records if table is empty
-        if db.query(ErrorReport).count() == 0:
-            first_proj = projects[0] if projects else None
-            seed_errors = [
-                ("ERR_CORS_ORIGIN_REJECTED", 403, "warning", "Origem CORS bloqueada fora da allowlist", "Requisição cross-origin bloqueada pelo validador estrito de Origin (Vary: Origin).", "/pages/aiops-crud/index.html", "resolved"),
-                ("ERR_PREVIEW_AUTH_REQUIRED", 401, "warning", "Tentativa de acesso ao preview sem aprovação prévia", "Versão em pending_approval exigiu header Authorization Bearer válido (P-4).", "/pages/aiops-crud/v/1.1.0/", "resolved"),
-                ("ERR_QUERY_TOKEN_FORBIDDEN", 401, "error", "Token na query string (?token=) bloqueado", "Política P-8 rejeitou credencial enviada na URL para evitar vazamento em logs e Referer.", "/api/v1/projects", "resolved"),
-                ("ERR_ASSET_HASH_FALLBACK", 200, "info", "Asset de release anterior recuperado após rollback", "Fallback inteligente serviu bundle com hash a partir de releases/ durante transição de rollback (P-3).", "/pages/aiops-crud/assets/index.js", "resolved"),
-                ("ERR_CSP_INLINE_REPORT", 200, "info", "Verificação de política Content-Security-Policy ativa", "Headers CSP, X-Frame-Options, Referrer-Policy, X-Content-Type-Options e HSTS aplicados (P-2).", "/pages/portal-loft/", "resolved"),
-                ("ERR_OPSBASE_RUNTIME_INJECT", 200, "info", "Injeção de credenciais públicas Opsbase concluída", "Script env-config.js injetado com window.__OPSBASE_CONFIG__ e chave pública com escopo (P-13).", "/pages/aiops-crud/env-config.js", "resolved"),
-                ("ERR_ETAG_304_CONDITIONAL", 304, "info", "Validação condicional ETag / If-None-Match 304", "Cliente validou cache de index.html via If-None-Match recebendo 304 Not Modified (P-7).", "/pages/portal-loft/index.html", "resolved"),
-                ("ERR_UPLOAD_MULTIPART_SCHEMA", 200, "info", "Validação de contrato OpenAPI multipart/form-data", "Schema binário de upload documentado e validado na especificação OpenAPI 3.1 (P-6).", "/api/v1/projects/1/deployments/upload", "resolved"),
-                ("ERR_QUICKBUILD_BINARY_ASSET", 201, "info", "Upload de asset binário Base64 via quick-build", "Suporte a arquivos binários (imagens/fontes) e texto no endpoint quick-build (P-12).", "/api/v1/projects/1/deployments/quick-build", "resolved"),
-                ("ERR_PREVIEW_BASE_REWRITE", 200, "info", "Isolamento de assets por versão no preview", "Preview reescreveu caminhos de assets para /pages/{slug}/v/{version}/ isolando da versão live (P-5).", "/pages/aiops-crud/v/1.1.0/index.html", "resolved"),
-                ("ERR_PUBLIC_OVERVIEW_REDACTED", 200, "info", "Redação de dados sensíveis em /public/overview", "E-mails e caminhos internos de disco ocultados para chamadas não autenticadas (P-11).", "/api/v1/public/overview", "resolved"),
-                ("ERR_API_CORS_STRICT_PORT", 403, "warning", "Porta arbitrária de localhost bloqueada na API", "Allowlist explícita de origens aplicada na API sem regex permissivo (P-10).", "/api/v1/auth/me", "resolved"),
-            ]
-            for code, status_code, sev, title, msg, path_str, st in seed_errors:
-                db.add(
-                    ErrorReport(
-                        project_id=first_proj.id if first_proj else None,
-                        project_slug=first_proj.slug if first_proj else "portal-loft",
-                        page_url=f"http://localhost:8005{path_str}",
-                        route_path=path_str,
-                        error_code=code,
-                        http_status=status_code,
-                        severity=sev,
-                        title=title,
-                        message=msg,
-                        version="1.1.0",
-                        environment="production",
-                        status=st,
-                        reporter_email=default_email,
-                    )
-                )
-            db.commit()
     except Exception as e:
         db.rollback()
         logger.error(f"Error initializing meta database: {e}")

@@ -16,12 +16,29 @@ export const VALID_SECTIONS: NavSection[] = [
   'settings',
 ];
 
+const BASE_PATH = (import.meta.env.BASE_URL || '/').replace(/\/+$/, '');
+
+function stripBasePath(pathname: string): string {
+  let clean = pathname || '/';
+  if (BASE_PATH && BASE_PATH !== '/' && clean.startsWith(BASE_PATH)) {
+    clean = clean.slice(BASE_PATH.length) || '/';
+  }
+  return clean.replace(/\/+$/, '') || '/';
+}
+
+function withBasePath(pathname: string): string {
+  const clean = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  if (!BASE_PATH || BASE_PATH === '/') return clean;
+  if (clean === BASE_PATH || clean.startsWith(`${BASE_PATH}/`)) return clean;
+  return clean === '/' ? `${BASE_PATH}/` : `${BASE_PATH}${clean}`;
+}
+
 export function resolveSectionFromPathname(pathname: string): NavSection | 'landing' | 'login' {
-  const clean = (pathname || '/').replace(/\/+$/, '') || '/';
+  const clean = stripBasePath(pathname);
   if (clean === '/' || clean === '/home' || clean === '/landing') {
     return 'landing';
   }
-  if (clean === '/login' || clean === '/signin') {
+  if (clean === '/login' || clean === '/signin' || clean === '/register') {
     return 'login';
   }
   const seg = clean.replace(/^\/+/, '').split('/')[0] as NavSection;
@@ -42,7 +59,7 @@ export function syncRouteAndParams(
   push: boolean = false
 ): void {
   if (typeof window === 'undefined') return;
-  const targetPath = pathname || window.location.pathname || '/';
+  const targetPath = pathname ? withBasePath(pathname) : window.location.pathname || withBasePath('/');
   const params = new URLSearchParams(window.location.search);
 
   if (updates) {

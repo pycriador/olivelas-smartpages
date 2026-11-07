@@ -1,5 +1,5 @@
 """
-Pydantic v2 Schemas for Authentication and IAM (Admin, Editor, Viewer).
+Pydantic v2 Schemas for Authentication, First-User Global Admin Registration, and IAM (Admin, Editor, Viewer).
 """
 from __future__ import annotations
 
@@ -11,17 +11,26 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 class LoginRequest(BaseModel):
     username: Optional[str] = Field(None, min_length=1, max_length=150)
     username_or_email: Optional[str] = Field(None, min_length=1, max_length=150)
+    email: Optional[str] = Field(None, min_length=1, max_length=255)
     password: str = Field(..., min_length=4)
 
     @model_validator(mode="after")
     def validate_identifier(self) -> LoginRequest:
-        if not self.username and not self.username_or_email:
-            raise ValueError("Either 'username' or 'username_or_email' must be provided.")
+        if not self.username and not self.username_or_email and not self.email:
+            raise ValueError("Either 'username', 'username_or_email', or 'email' must be provided.")
         return self
 
 
+class RegisterRequest(BaseModel):
+    email: str = Field(..., min_length=3, max_length=255)
+    full_name: str = Field(default="", max_length=255)
+    username: Optional[str] = Field(default=None, max_length=100)
+    password: str = Field(..., min_length=6)
+
+
 class PasswordChangeRequest(BaseModel):
-    old_password: str
+    old_password: Optional[str] = None
+    current_password: Optional[str] = None
     new_password: str = Field(..., min_length=6)
 
 
@@ -48,11 +57,13 @@ class GroupResponse(GroupBase):
 
 
 class UserBase(BaseModel):
-    username: str = Field(..., min_length=3, max_length=100)
+    username: str = Field(..., min_length=2, max_length=100)
     email: str = Field(..., min_length=3, max_length=255)
     full_name: str = Field(default="", max_length=255)
     is_active: bool = True
     is_superuser: bool = False
+    preferred_theme: str = "loft-obsidian"
+    preferred_language: str = "pt-BR"
 
 
 class UserCreate(UserBase):
@@ -67,6 +78,8 @@ class UserUpdate(BaseModel):
     password: Optional[str] = Field(None, min_length=6)
     is_active: Optional[bool] = None
     is_superuser: Optional[bool] = None
+    preferred_theme: Optional[str] = None
+    preferred_language: Optional[str] = None
     group_ids: Optional[List[int]] = None
     role: Optional[str] = Field(None, pattern="^(admin|editor|viewer)$")
 
@@ -82,6 +95,7 @@ class UserResponse(UserBase):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    expires_in: int
+    expires_in: int = 86400
+    is_first_user_global_admin: Optional[bool] = None
     user: UserResponse
     data: Optional[Dict[str, Any]] = None

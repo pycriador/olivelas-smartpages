@@ -22,11 +22,13 @@ import {
   SearchOutlined,
 } from '@ant-design/icons';
 import { useProjectStore } from '../../stores/useProjectStore';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { api, extractErrorMessage } from '../../services/api';
 import { useUrlTableState } from '../../utils/urlState';
 
 export const IamManager: React.FC = () => {
   const { activeProject } = useProjectStore();
+  const { user: currentUser } = useAuthStore();
   const [users, setUsers] = useState<any[]>([]);
   const [groups, setGroups] = useState<any[]>([]);
   const [permissions, setPermissions] = useState<any[]>([]);
@@ -333,13 +335,13 @@ export const IamManager: React.FC = () => {
                       },
                     },
                     {
-                      title: 'Super Admin',
+                      title: 'Global Admin',
                       key: 'super',
                       render: (_: any, r: any) => (
                         <Switch
                           size="small"
                           checked={r.is_superuser}
-                          disabled={r.email === 'willian.jesus@loft.com.br'}
+                          disabled={r.id === currentUser?.id}
                           onChange={(checked) => handleToggleSuperAdmin(r.id, checked)}
                         />
                       ),
@@ -349,7 +351,7 @@ export const IamManager: React.FC = () => {
                       key: 'actions',
                       align: 'right' as const,
                       render: (_: any, r: any) =>
-                        r.email !== 'willian.jesus@loft.com.br' ? (
+                        r.id !== currentUser?.id ? (
                           <Popconfirm
                             title={`Remover usuário ${r.email}?`}
                             onConfirm={() => handleDeleteUser(r.id)}
@@ -357,7 +359,7 @@ export const IamManager: React.FC = () => {
                             <Button size="small" danger icon={<DeleteOutlined />} />
                           </Popconfirm>
                         ) : (
-                          <Tag color="orange">Padrão</Tag>
+                          <Tag color="gold">Você</Tag>
                         ),
                     },
                   ]}

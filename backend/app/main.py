@@ -223,12 +223,11 @@ def _seed_demo_project_if_empty() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Initializing AIOps OpsPages metadata database and /repos storage...")
+    logger.info("Initializing Olivelas SmartPages metadata database and /repos storage...")
     init_meta_db()
-    _seed_demo_project_if_empty()
-    logger.info("AIOps OpsPages ready to serve API and static pages.")
+    logger.info("Olivelas SmartPages ready to serve API and static pages.")
     yield
-    logger.info("AIOps OpsPages shutting down.")
+    logger.info("Olivelas SmartPages shutting down.")
 
 
 app = FastAPI(

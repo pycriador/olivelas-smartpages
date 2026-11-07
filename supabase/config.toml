@@ -1,0 +1,14 @@
+# Supabase Configuration for Olivelas SmartPages (AIOps OpsPages)
+project_id = "flxcgbftpwjvxetqbtzq"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "smartpages"]
+extra_search_path = ["smartpages", "public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17

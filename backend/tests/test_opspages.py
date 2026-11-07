@@ -13,9 +13,12 @@ from __future__ import annotations
 import io
 import os
 import shutil
+import sys
 import tempfile
 import zipfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pytest
 from fastapi.testclient import TestClient
@@ -26,7 +29,6 @@ os.environ["OPSPAGES_META_DB_URL"] = f"sqlite:///{TEST_DIR / 'test_opspages.db'}
 os.environ["REPOS_STORAGE_DIR"] = str(TEST_DIR / "repos")
 
 from app.core.config import settings
-settings.OPSPAGES_META_DB_URL = os.environ["OPSPAGES_META_DB_URL"]
 settings.REPOS_STORAGE_DIR = os.environ["REPOS_STORAGE_DIR"]
 
 from app.main import app
@@ -101,7 +103,6 @@ def client():
     init_meta_db()
     with TestClient(app) as c:
         yield c
-    shutil.rmtree(TEST_DIR, ignore_errors=True)
 
 
 def test_health_and_superadmin_login(client: TestClient):
@@ -110,7 +111,27 @@ def test_health_and_superadmin_login(client: TestClient):
     assert res.status_code == 200
     data = res.json()
     assert data["status"] == "healthy"
-    assert data["default_superadmin"] == "willian.jesus@loft.com.br"
+
+    # Bootstrap status: before any user is registered, next_user_will_be_global_admin is True
+    boot_res = client.get("/api/v1/auth/bootstrap-status")
+    assert boot_res.status_code == 200
+    boot_data = boot_res.json()
+    assert boot_data["user_count"] == 0
+    assert boot_data["next_user_will_be_global_admin"] is True
+
+    # Register the FIRST user on the platform -> automatically promoted to Global Admin
+    reg_res = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "admin@olivelas.com",
+            "full_name": "Olivelas Global Admin",
+            "password": "Admin@OpsPages2026",
+        },
+    )
+    assert reg_res.status_code == 201, reg_res.text
+    reg_data = reg_res.json()
+    assert reg_data["is_first_user_global_admin"] is True
+    assert reg_data["user"]["is_superuser"] is True
 
     # Public overview endpoint (real backend data for LandingPage)
     pub_res = client.get("/api/v1/public/overview")
@@ -119,27 +140,27 @@ def test_health_and_superadmin_login(client: TestClient):
     assert "stats" in pub_data
     assert "public_projects" in pub_data
 
-    # Login with default Super Admin (by email)
+    # Login with the registered Global Admin (by email)
     login_res = client.post(
         "/api/v1/auth/login",
         json={
-            "username": "willian.jesus@loft.com.br",
-            "password": settings.effective_superadmin_password,
+            "username": "admin@olivelas.com",
+            "password": "Admin@OpsPages2026",
         },
     )
     assert login_res.status_code == 200, login_res.text
     token_data = login_res.json()
-    assert token_data["user"]["email"] == "willian.jesus@loft.com.br"
+    assert token_data["user"]["email"] == "admin@olivelas.com"
     assert token_data["user"]["is_superuser"] is True
 
 
 def test_full_project_git_deploy_lock_and_approval_flow(client: TestClient):
-    # Authenticate as Super Admin
+    # Authenticate as Global Admin
     login_res = client.post(
         "/api/v1/auth/login",
         json={
-            "username": "willian.jesus@loft.com.br",
-            "password": settings.effective_superadmin_password,
+            "username": "admin@olivelas.com",
+            "password": "Admin@OpsPages2026",
         },
     )
     token = login_res.json()["access_token"]
@@ -164,7 +185,7 @@ def test_full_project_git_deploy_lock_and_approval_flow(client: TestClient):
     assert proj_res.status_code == 201, proj_res.text
     project = proj_res.json()
     project_id = project["id"]
-    assert project["active_version"] == "v1.0.0"
+    assert project["active_version"] == "v0.0.0-seed"
     assert project["auto_approval"] is True
     assert project["is_locked"] is False
 
@@ -203,8 +224,8 @@ def test_full_project_git_deploy_lock_and_approval_flow(client: TestClient):
     live_res = client.get("/pages/loft-checkout/")
     assert "Checkout v1.1.0 Live" in live_res.text
 
-    # Verify v1.0.0 is still accessible via immutable version preview URL
-    prev_res = client.get("/pages/loft-checkout/v/v1.0.0/")
+    # Verify v0.0.0-seed is still accessible via immutable version preview URL
+    prev_res = client.get("/pages/loft-checkout/v/v0.0.0-seed/")
     assert prev_res.status_code == 200
     assert "Loft Checkout Portal" in prev_res.text
 
@@ -286,7 +307,7 @@ def test_full_project_git_deploy_lock_and_approval_flow(client: TestClient):
     git_data = git_res.json()
     assert git_data["initialized"] is True
     assert len(git_data["commits"]) >= 4
-    assert "v1.0.0" in git_data["tags"]
+    assert "v0.0.0-seed" in git_data["tags"]
     assert "v1.3.0" in git_data["tags"]
 
     diff_res = client.get(
@@ -310,8 +331,8 @@ def test_hbac_roles_and_audit(client: TestClient):
     login_res = client.post(
         "/api/v1/auth/login",
         json={
-            "username": "willian.jesus@loft.com.br",
-            "password": settings.effective_superadmin_password,
+            "username": "admin@olivelas.com",
+            "password": "Admin@OpsPages2026",
         },
     )
     admin_headers = {"Authorization": f"Bearer {login_res.json()['access_token']}"}

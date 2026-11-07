@@ -1,295 +1,133 @@
-# AIOps OpsPages — Enterprise Static Build Hosting & Git `/repos` Platform
+# Olivelas SmartPages — Static Hosting, Git Versioning & Governance Control Plane
 
-> **Padrão de Documentação:** [`loft-br/aiops-documentation`](https://github.com/loft-br/aiops-documentation) (AI-Ready Documentation Standard v1.0)
-> **Ponto de Entrada para Agentes de IA:** [`docs/ai-context.md`](docs/ai-context.md) | **Índice Mestre da Documentação:** [`docs/README.md`](docs/README.md)
+Plataforma corporativa de hospedagem de builds estáticas, controle de versões Git (`/repos`), políticas de segurança (CORS/CSP), gerenciamento de quotas e governança HBAC multi-tenant integrada ao **Supabase** em um schema PostgreSQL isolado (`smartpages`).
 
-**AIOps OpsPages** é a plataforma corporativa de hospedagem de builds estáticas (estilo GitHub Pages / Vercel / Cloudflare Pages) da Loft, construída no mesmo padrão arquitetural, visual (Design System Copan com 20 temas) e de governança do **AIOps OpsBase**.
-
-Todas as builds estáticas são versionadas em repositórios Git isolados dentro de **`/repos/{project-slug}`**, contando com **Trava de Versão (`Version Lock`)**, **Aprovação Automática ou Manual**, **Rollback Instantâneo com Preservação de Assets**, **Injeção de Credenciais Públicas por Ambiente (`env-config.js`)**, **HBAC (Hierarchical Role-Based Access Control)**, **Tokens de Deploy CI/CD (`opsp_deploy_...`)**, **Central de Reporte de Erros (`/errors`)** e **Auditoria Forense Imutável**.
+- **Repositório Oficial**: [https://github.com/pycriador/olivelas-smartpages](https://github.com/pycriador/olivelas-smartpages)
+- **GitHub Pages (Live)**: [https://pycriador.github.io/olivelas-smartpages/](https://pycriador.github.io/olivelas-smartpages/)
+- **Schema Isolado no Supabase**: `smartpages`
 
 ---
 
-## 🌐 Portas, Serviços e URLs de Acesso
+## 1. Arquitetura & Isolamento no Supabase (`smartpages`)
 
-| Serviço / Componente | Tecnologia | Porta Padrão | URL Local | Descrição |
-| :--- | :--- | :---: | :--- | :--- |
-| **Frontend Console & Landing** | React 18 + TypeScript + Vite + Ant Design 5 | `5176` | `http://localhost:5176` | Console administrativo, Landing Page, Gestão de Projetos e Central de Erros |
-| **Backend API (Control Plane)** | Python 3.13 + FastAPI + SQLAlchemy 2.0 | `8005` | `http://localhost:8005/api/v1` | API RESTful de projetos, builds, Git, HBAC, tokens, CORS, config pública e erros |
-| **Static Pages Hosting (Live)** | FastAPI Static & SPA Router | `8005` | `http://localhost:8005/pages/{slug}/` | Servidor de builds estáticas em produção com cache diferenciado e CSP |
-| **Static Pages Preview (Tag)** | FastAPI Versioned Preview Router | `8005` | `http://localhost:8005/pages/{slug}/v/{version}/` | Preview isolado por versão (protegido por token antes da aprovação) |
-| **Runtime Public Config** | Dynamic JS/JSON Injector | `8005` | `http://localhost:8005/pages/{slug}/env-config.js` | Credenciais públicas por ambiente (`window.__OPSPAGES_CONFIG__` / `window.__OPSBASE_CONFIG__`) |
-| **Swagger / OpenAPI 3.1** | FastAPI Swagger UI & ReDoc | `8005` | `http://localhost:8005/docs` | Documentação interativa completa da API (incluindo upload multipart e quick-build) |
-| **Healthcheck** | FastAPI Probe | `8005` | `http://localhost:8005/health` | Sonda de disponibilidade e status do banco de metadados |
+Toda a persistência de dados deste projeto opera estritamente dentro do schema **`smartpages`** no PostgreSQL do Supabase, completamente isolado do schema `public` e de outros projetos que compartilham a mesma instância:
 
-### Rotas Dedicadas e Navegação Lateral em Grupos (`http://localhost:5176`)
-
-O console possui **menu lateral fixo (`268px`) com rolagem independente** organizado em **4 grupos retráteis** (`Publicação & Git`, `Integração & Rede`, `Segurança & Acesso`, `Governança & Sistema`), sem botão de recolhimento na barra superior, e layout espaçado padronizado (`.opspages-page`). Todas as páginas possuem rota própria na URL e sincronizam filtros e paginação (`?page=1&page_size=10&q=...&status=...`, exibindo no mínimo **10 elementos por página**):
-
-| Rota URL | Módulo | Descrição |
+| Tabela (`smartpages.*`) | Finalidade | Estado Inicial (Seed) |
 | :--- | :--- | :--- |
-| `/` | `LandingPage.tsx` | Landing Page institucional com telemetria real (`GET /api/v1/public/overview`) |
-| `/login` | `LoginPage.tsx` | Autenticação corporativa JWT (sem credenciais hardcoded no código) |
-| `/dashboard` | `ProjectDashboard.tsx` | Visão geral do projeto ativo, preview ao vivo, lock de versão e snippets CI/CD |
-| `/deployments` | `DeploymentsManager.tsx` | Upload `.zip`/`.tar.gz`, Quick Web Builder (com suporte a binários Base64), aprovação e rollback |
-| `/explorer` | `BuildFileExplorer.tsx` | Árvore de arquivos da release, visualizador de código, tabela paginada e downloads `.zip` |
-| `/git` | `GitVersionControl.tsx` | Histórico de commits/tags Git em `/repos/{slug}/git_repo`, comparador `git diff` e `git push/pull` |
-| `/tokens` | `TokensManager.tsx` | Gestão de API Keys (`opsp_deploy_`, `opsp_admin_`, `opsp_read_`) com hash SHA-256 |
-| `/iam` | `IamManager.tsx` | Gestão de usuários, grupos e permissões HBAC (`Admin`, `Editor`, `Visualizador`) |
-| `/quotas` | `QuotasManager.tsx` | Limites de tamanho de build, armazenamento total, deploys/dia e retenção de versões |
-| `/cors` | `CorsManager.tsx` | Regras de CORS por projeto com validação exata de origem e `Vary: Origin` |
-| `/public-config` | `PublicConfigManager.tsx` | Credenciais públicas por ambiente (integração Opsbase), `Cache-Control` e Security Headers (CSP) |
-| `/audit` | `AuditViewer.tsx` | Trilha de auditoria forense imutável com inspeção de payload JSON |
-| `/errors` | `ErrorsManager.tsx` | **Rota para informar e gerenciar erros** (acessível pública e autenticada) |
-| `/settings` | `SettingsPage.tsx` | Configurações do projeto, seletor de 20 temas Copan, idioma (`PT-BR`/`EN`/`ES`) e diagnóstico de DB |
+| `opspages_platform_settings` | Configurações globais da plataforma, identidade, políticas de autenticação e quotas padrão | **5 configurações padrão** |
+| `opspages_themes` | Catálogo oficial de temas visuais (10 Light + 10 Dark) e personalizações | **20 temas oficiais** |
+| `opspages_groups` | Grupos de controle de acesso HBAC (`Platform Admins`, `Frontend Editors`, `Project Viewers`) | **3 grupos HBAC** |
+| `opspages_users` | Contas de usuários da plataforma | **0 registros** (1º cadastro = Global Admin) |
+| `opspages_user_groups` | Vínculo N:N entre usuários e grupos HBAC | **0 registros** |
+| `opspages_projects` | Projetos de hospedagem estática | **0 registros** |
+| `opspages_deployments` | Releases imutáveis publicadas ou aguardando aprovação | **0 registros** |
+| `opspages_release_files` | Artefatos das releases para inspeção e preview | **0 registros** |
+| `opspages_project_permissions` | Permissões granulares por projeto (Admin, Editor, Viewer) | **0 registros** |
+| `opspages_api_tokens` | Chaves de API com escopo (`opsp_deploy_...`, `opsp_service_...`) | **0 registros** |
+| `opspages_project_quotas` | Limites de tamanho de build, armazenamento e deploys diários | **0 registros** |
+| `opspages_cors_rules` | Regras dinâmicas de CORS e headers de segurança por projeto | **0 registros** |
+| `opspages_public_configs` | Variáveis públicas de runtime por ambiente (`production`, `staging`, `development`, `preview`) | **0 registros** |
+| `opspages_error_reports` | Telemetria de erros client-side e diagnósticos | **0 registros** |
+| `opspages_audit_logs` | Trilha de auditoria imutável de governança | **0 registros** |
 
 ---
 
-## 🚀 Como Executar o Projeto
+## 2. Regra do Primeiro Cadastro = Global Admin
 
-### 1. Inicialização Rápida (`./start.sh`)
-
-```bash
-# 1. Configure o arquivo .env a partir do exemplo
-cp .env.example .env
-
-# 2. Inicie o Backend (:8005) e o Frontend (:5176)
-./start.sh start
-```
-
-Comandos disponíveis no script [`./start.sh`](start.sh):
-
-```bash
-./start.sh start     # Inicializa o banco, garante o Super Admin padrão e inicia Backend (:8005) + Frontend (:5176)
-./start.sh status    # Exibe status dos processos (ONLINE/OFFLINE) e URLs de acesso
-./start.sh stop      # Encerra os processos de Backend e Frontend com segurança
-./start.sh restart   # Reinicia ambos os serviços
-./start.sh logs      # Acompanha os logs em tempo real (logs/backend.log e logs/frontend.log)
-```
+A plataforma inicia sem usuários pré-cadastrados (`0` registros em `smartpages.opspages_users`):
+1. **O primeiro usuário cadastrado na plataforma** (seja pela interface Web na aba **★ 1º Cadastro (Global Admin)**, pela API `POST /api/v1/auth/register`, pela RPC `smartpages.register_user` ou via CLI `manage_users.py`) é **promovido automaticamente a Global Admin** (`is_superuser = true` e membro do grupo `Platform Admins`).
+2. Essa regra é garantida tanto na camada de aplicação (FastAPI + RPC) quanto diretamente no banco de dados PostgreSQL por meio das triggers `trg_before_user_insert_global_admin` e `trg_after_user_insert_assign_group`.
 
 ---
 
-## 💻 Scripts CLI de Backend (`backend/scripts/`)
+## 3. Migrations do Supabase (`supabase/migrations/`)
 
-Todos os scripts administrativos ficam em [`backend/scripts/`](backend/scripts/) e operam diretamente sobre o banco configurado no `.env` (**SQLite**, **PostgreSQL** ou **MariaDB**).
+Todas as migrations SQL do projeto estão versionadas em [`supabase/migrations/`](supabase/migrations/):
 
-### 1. Provisionar e Diagnosticar Banco de Dados (`setup_db.py`)
+- [`20261107000001_init_smartpages_schema.sql`](supabase/migrations/20261107000001_init_smartpages_schema.sql): Cria o schema isolado `smartpages`, configura permissões do PostgREST, cria as 15 tabelas estruturais e instala as triggers de promoção automática do primeiro usuário para Global Admin.
+- [`20261107000002_seed_platform_config_and_themes.sql`](supabase/migrations/20261107000002_seed_platform_config_and_themes.sql): Popula exclusivamente as configurações da plataforma (`opspages_platform_settings`), os 3 grupos HBAC (`opspages_groups`) e os 20 temas visuais (`opspages_themes`).
+- [`20261107000003_smartpages_rpc_and_rls.sql`](supabase/migrations/20261107000003_smartpages_rpc_and_rls.sql): Cria as funções RPC (`bootstrap_status`, `register_user`, `authenticate_user`, `change_user_password`, `admin_create_user`) compatíveis com `pgcrypto`/`bcrypt` e políticas RLS para operação direta via GitHub Pages e Backend.
 
-```bash
-cd backend
-
-# Inicializar e validar o banco padrão configurado no .env (SQLite)
-python3 scripts/setup_db.py
-
-# Testar e inicializar em PostgreSQL
-python3 scripts/setup_db.py \
-  --engine postgresql \
-  --url "postgresql+psycopg://postgres:<SENHA>@localhost:5432/aiops_opspages"
-
-# Testar e inicializar em MariaDB / MySQL
-python3 scripts/setup_db.py \
-  --engine mariadb \
-  --url "mysql+pymysql://root:<SENHA>@localhost:3306/aiops_opspages?charset=utf8mb4"
-```
-
-### 2. Criar ou Atualizar Super Admin (`create_admin.py`)
-
-O usuário padrão **`willian.jesus@loft.com.br`** é cadastrado automaticamente como Super Admin a partir das variáveis do `.env`. Para garantir ou recriar via CLI:
+Para aplicar ou verificar as migrations no Supabase via CLI:
 
 ```bash
-cd backend
-
-# Garantir o Super Admin padrão (willian.jesus@loft.com.br) usando a senha do .env
-python3 scripts/create_admin.py --default
-
-# Criar ou promover um Super Admin informando parâmetros
-python3 scripts/create_admin.py \
-  --username willian.jesus \
-  --email willian.jesus@loft.com.br \
-  --full-name "Willian Jesus" \
-  --password "<SENHA_FORTE>"
-```
-
-### 3. Criar Usuários e Alterar Permissões HBAC (`manage_users.py`)
-
-Gerencia os 3 níveis de permissão (`admin`, `editor`, `viewer`/`visualizador`) globalmente ou por projeto:
-
-```bash
-cd backend
-
-# 1. Listar todos os usuários, grupos e permissões por projeto
-python3 scripts/manage_users.py list
-
-# 2. Criar usuário com papel Editor (ou Admin / Visualizador)
-python3 scripts/manage_users.py create \
-  --email dev.frontend@loft.com.br \
-  --username dev.frontend \
-  --name "Dev Frontend Loft" \
-  --password "<SENHA_INICIAL>" \
-  --role editor \
-  --project portal-loft
-
-# 3. Alterar permissão global de um usuário (admin | editor | viewer)
-python3 scripts/manage_users.py set-role \
-  --email dev.frontend@loft.com.br \
-  --role admin
-
-# 4. Alterar permissão de um usuário apenas em um projeto específico
-python3 scripts/manage_users.py set-role \
-  --email dev.frontend@loft.com.br \
-  --role visualizador \
-  --project portal-loft
-
-# 5. Promover ou revogar privilégio de Super Admin
-python3 scripts/manage_users.py set-superadmin --email willian.jesus@loft.com.br --enable
-```
-
-### 4. Alterar Senha de Usuário (`change_password.py`)
-
-```bash
-cd backend
-
-# Modo direto via parâmetros
-python3 scripts/change_password.py \
-  --user willian.jesus@loft.com.br \
-  --password "<NOVA_SENHA_FORTE>"
-
-# Modo interativo (solicita senha oculta via prompt)
-python3 scripts/change_password.py
+python3 backend/scripts/setup_db.py
+python3 backend/scripts/setup_db.py --status
 ```
 
 ---
 
-## 📦 Exemplos Práticos de Uso da API
+## 4. Gerenciamento de Usuários no Supabase via CLI
 
-### Exemplo 1: Publicar Build Estática via Upload `.zip` (CI/CD ou cURL)
-
-```bash
-# Empacote sua build estática (HTML, CSS, JS, imagens)
-cd sites/portal-loft && npm run build
-cd dist && zip -r ../portal-loft-build.zip . && cd ..
-
-# Envie para o OpsPages usando o header X-API-Key (ou Authorization: Bearer)
-curl -X POST "http://localhost:8005/api/v1/projects/1/deployments/upload" \
-  -H "X-API-Key: opsp_deploy_<SEU_TOKEN_DO_PROJETO>" \
-  -F "version=1.2.0" \
-  -F "release_notes=Release com novo seletor de idiomas PT/EN/ES" \
-  -F "file=@portal-loft-build.zip"
-```
-
-### Exemplo 2: Quick Build via JSON com Arquivos de Texto e Binários (Base64)
+O script [`backend/scripts/manage_users.py`](backend/scripts/manage_users.py) (acompanhado do guia executável [`backend/scripts/examples_supabase_cli.sh`](backend/scripts/examples_supabase_cli.sh)) permite gerenciar usuários e permissões diretamente no schema `smartpages` do Supabase:
 
 ```bash
-curl -X POST "http://localhost:8005/api/v1/projects/1/deployments/quick-build" \
-  -H "Authorization: Bearer <SEU_JWT_OU_API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "version": "1.2.1",
-    "release_notes": "Hotfix com ícone binário em Base64",
-    "files": {
-      "index.html": "<!doctype html><html><head><title>Portal</title></head><body><img src=\"logo.png\"/></body></html>"
-    },
-    "binary_files": {
-      "logo.png": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
-    }
-  }'
-```
+# 1. Verificar o status do schema smartpages e da política de 1º cadastro Global Admin
+python3 backend/scripts/manage_users.py status
 
-### Exemplo 3: Vincular, Sincronizar e Consumir Credenciais Públicas do OpsBase (`P-13` & Parte 2)
+# 2. Listar usuários cadastrados
+python3 backend/scripts/manage_users.py list
 
-```bash
-# 1. Vincular/Sincronizar o projeto com o endpoint de descoberta do OpsBase (sem chave digitada manualmente)
-curl -X POST "http://localhost:8005/api/v1/projects/1/opsbase/sync" \
-  -H "Authorization: Bearer <SEU_JWT>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "opsbase_project_slug": "portal_loft",
-    "sync_cors": true
-  }'
+# 3. Cadastrar o primeiro usuário (promovido automaticamente a Global Admin)
+python3 backend/scripts/manage_users.py create \
+  --email "admin@olivelas.com" \
+  --name "Global Admin" \
+  --password "SuaSenhaForte123!"
 
-# 2. Customizar variáveis públicas ou URL por ambiente (ex.: production)
-curl -X PUT "http://localhost:8005/api/v1/projects/1/public-config/production" \
-  -H "Authorization: Bearer <SEU_JWT>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "environment": "production",
-    "opsbase_url": "http://localhost:8001/api/v1",
-    "public_vars": {
-      "FEATURE_REALTIME_NEWS": true,
-      "DEFAULT_LOCALE": "pt-BR"
-    },
-    "inject_in_html": true,
-    "is_active": true
-  }'
+# 4. Cadastrar um usuário Editor ou Viewer
+python3 backend/scripts/manage_users.py create \
+  --email "editor@olivelas.com" \
+  --name "Dev Editor" \
+  --password "SenhaEditor123!" \
+  --role editor
 
-# 3. A página estática publicada recebe em runtime (Cache-Control: no-cache, no-store, must-revalidate):
-# <script src="/pages/portal-loft/env-config.js?env=production"></script>
-# window.__OPSPAGES_CONFIG__.opsbase_url      -> "http://localhost:8001/api/v1"
-# window.__OPSPAGES_CONFIG__.opsbase_anon_key -> "opsbase_anon_..." (descoberta do OpsBase)
-```
+# 5. Alterar a role HBAC de um usuário (admin | editor | viewer)
+python3 backend/scripts/manage_users.py set-role --email "editor@olivelas.com" --role admin
 
-### Exemplo 4: Informar um Erro pela API (`POST /api/v1/errors/report`)
+# 6. Promover ou revogar Global Admin
+python3 backend/scripts/manage_users.py promote-admin --email "editor@olivelas.com"
+python3 backend/scripts/manage_users.py revoke-admin  --email "editor@olivelas.com"
 
-```bash
-curl -X POST "http://localhost:8005/api/v1/errors/report" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "project_slug": "portal-loft",
-    "page_url": "http://localhost:8005/pages/portal-loft/",
-    "route_path": "/pages/portal-loft/",
-    "error_code": "ASSET_404",
-    "severity": "warning",
-    "scope": "static-page",
-    "title": "Imagem de capa demorou para carregar em rede 3G",
-    "description": "Observado durante teste de performance mobile.",
-    "reporter_email": "qa@loft.com.br"
-  }'
+# 7. Redefinir a senha de um usuário
+python3 backend/scripts/manage_users.py reset-password \
+  --email "admin@olivelas.com" \
+  --password "NovaSenhaSegura2026!"
+
+# 8. Ativar, desativar ou excluir um usuário
+python3 backend/scripts/manage_users.py deactivate --email "editor@olivelas.com"
+python3 backend/scripts/manage_users.py activate   --email "editor@olivelas.com"
+python3 backend/scripts/manage_users.py delete     --email "editor@olivelas.com"
 ```
 
 ---
 
-## 📰 Projeto Estático Real Incluso: Portal Loft (`sites/portal-loft`)
+## 5. Variáveis de Ambiente & GitHub Secrets
 
-O repositório inclui o código-fonte completo em **TypeScript** da primeira página estática real publicada no OpsPages: **Portal Loft** ([`sites/portal-loft/`](sites/portal-loft/)), um portal editorial de notícias de IA, Cloud, Semicondutores e Engenharia de Software com:
+As credenciais do Supabase utilizadas pelo Frontend e pelo Backend são configuradas no `.env` (local) e nos **GitHub Actions Secrets** do repositório:
 
-- Seletor de idiomas em tempo real (**Português `pt-BR`**, **English `en`** e **Español `es`**) com persistência em URL (`?lang=`) e `localStorage`.
-- Versões `1.0.0` e `1.1.0` publicadas e versionadas no Git em `/repos/portal-loft`.
-- Download direto na interface e via API:
-  - **Baixar HTML Estático (`.zip`)**: `GET /api/v1/public/projects/portal-loft/download-build?version=1.1.0`
-  - **Baixar Código-Fonte TypeScript (`.zip`)**: `GET /api/v1/public/projects/portal-loft/download-source?version=1.1.0`
-
----
-
-## 📚 Documentação Técnica AI-Ready (`docs/`)
-
-Toda a documentação segue o framework corporativo [`loft-br/aiops-documentation`](https://github.com/loft-br/aiops-documentation) com navegação progressiva de contexto (Níveis 0 a 6):
-
-| Nível | Documento | Escopo |
-| :---: | :--- | :--- |
-| **Índice** | [`docs/README.md`](docs/README.md) | Mapa mestre de navegação e cadeia `Context -> Knowledge -> Relationships -> Evidence -> Constraints -> Actions` |
-| **Level 0** | [`docs/ai-context.md`](docs/ai-context.md) | Ponto de entrada obrigatório para agentes de IA e limites operacionais |
-| **Level 1** | [`docs/project-overview.md`](docs/project-overview.md) | Propósito, escopo, não-objetivos, glossário e stack real verificada |
-| **Level 2** | [`docs/architecture/overview.md`](docs/architecture/overview.md) | Diagramas C4/Mermaid, fluxo de deploy Git `/repos` e roteamento estático |
-| **Level 2** | [`docs/architecture/system-context.md`](docs/architecture/system-context.md) | Atores humanos, pipelines CI/CD, integração com OpsBase e GitHub |
-| **Level 2** | [`docs/application/backend-service.md`](docs/application/backend-service.md) | Arquitetura interna do Backend FastAPI, serviços e motor Git |
-| **Level 2** | [`docs/application/frontend-console.md`](docs/application/frontend-console.md) | Arquitetura do Console React, rotas por URL, paginação e Design System Copan |
-| **Level 2** | [`docs/application/portal-loft-site.md`](docs/application/portal-loft-site.md) | Arquitetura da build estática TypeScript `sites/portal-loft` (v1.0.0 e v1.1.0) |
-| **Level 3** | [`docs/contracts/api-contracts.md`](docs/contracts/api-contracts.md) | Contratos completos de todos os endpoints REST (`/api/v1/*` e `/pages/*`) |
-| **Level 3** | [`docs/contracts/data-model.md`](docs/contracts/data-model.md) | Modelo relacional SQLAlchemy 2.0 (10 tabelas `opspages_*`) |
-| **Level 3** | [`docs/contracts/hbac-matrix.md`](docs/contracts/hbac-matrix.md) | Matriz de permissões HBAC (`Super Admin`, `Admin`, `Editor`, `Visualizador`) |
-| **Level 4** | [`docs/operations/service-profile.md`](docs/operations/service-profile.md) | Portas, variáveis de ambiente, quotas e requisitos de runtime |
-| **Level 4** | [`docs/operations/runbook.md`](docs/operations/runbook.md) | Procedimentos operacionais, rollback, lock de versão e recuperação de falhas |
-| **Level 4** | [`docs/operations/monitoring-audit.md`](docs/operations/monitoring-audit.md) | Auditoria forense, Central de Erros (`/errors`), SLIs/SLOs e healthchecks |
-| **Level 5** | [`docs/security/overview.md`](docs/security/overview.md) | Modelagem de ameaças STRIDE, proteção Zip-Slip, CORS estrito e CSP |
-| **Level 5** | [`docs/security/trust-boundaries.md`](docs/security/trust-boundaries.md) | Fronteiras de confiança entre páginas públicas, previews, API e `/repos` |
-| **Level 5** | [`docs/security/controls-and-compliance.md`](docs/security/controls-and-compliance.md) | Controles `P-1` a `P-13`, LGPD, Marco Civil da Internet e ISO/IEC 27037 |
-| **Level 6** | [`docs/knowledge-gaps.md`](docs/knowledge-gaps.md) | Registro de evidências (`Confirmed`), dívidas técnicas e evoluções (`Proposed`) |
-| **ADRs** | [`docs/decisions/`](docs/decisions/) | Decisões arquiteturais numeradas (`ADR-0001`, `ADR-0002`, `ADR-0003`) |
+| Variável / Secret | Descrição |
+| :--- | :--- |
+| `VITE_SUPABASE_URL` | URL da API Supabase (`https://<project-ref>.supabase.co`) |
+| `VITE_SUPABASE_KEY` | Chave pública/anon do Supabase (`sb_publishable_...`) |
+| `VITE_SUPABASE_SCHEMA` | Schema isolado do projeto (`smartpages`) |
+| `db_host` / `DB_HOST` | Host PostgreSQL do Supabase (`db.<project-ref>.supabase.co`) |
+| `db_port` / `DB_PORT` | Porta PostgreSQL (`5432`) |
+| `db` / `DB` | Nome do banco de dados (`postgres`) |
+| `db_username` / `DB_USERNAME` | Usuário do banco (`postgres`) |
+| `db_password` / `DB_PASSWORD` | Senha do banco PostgreSQL no Supabase |
+| `DB_SCHEMA` | Schema isolado (`smartpages`) |
 
 ---
 
-## 🧪 Testes Automatizados
+## 6. Execução Local (Backend + Frontend)
 
 ```bash
-cd backend
-python3 -m pytest -v tests/test_opspages.py
+# Iniciar Backend FastAPI (porta 8005) e Frontend Vite (porta 5176/5185)
+./start.sh
+
+# Executar suíte de testes automatizados do Backend
+python3 -m pytest backend/tests/test_opspages.py backend/tests/test_r6_rls_enforced_passthrough.py backend/tests/test_p22_opsbase_auth_backoff.py
+
+# Build de produção do Frontend
+npm --prefix frontend run build
 ```

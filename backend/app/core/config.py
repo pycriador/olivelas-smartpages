@@ -1,200 +1,253 @@
 """
-Application Configuration using Pydantic v2.
-Supports SQLite (default), PostgreSQL, and MariaDB/MySQL.
-Follows Loft Backend Foundation & Engineering System guidelines.
+Core configuration module for Olivelas SmartPages (AIOps OpsPages Static Hosting & Governance Platform).
+Supports Supabase PostgreSQL (with isolated schema `smartpages` and automatic IPv4 Pooler resolution),
+MySQL/MariaDB, and SQLite.
 """
 from __future__ import annotations
 
-from functools import lru_cache
+import os
+import socket
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Set
+from urllib.parse import quote_plus
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+ROOT_DIR = BASE_DIR.parent
+
+# Load root .env first, then backend/.env (without overriding existing OS env vars)
+if (ROOT_DIR / ".env").exists():
+    load_dotenv(ROOT_DIR / ".env", override=False)
+if (BASE_DIR / ".env").exists():
+    load_dotenv(BASE_DIR / ".env", override=False)
+
+
+def _resolve_ipv4(hostname: str, port: int = 5432) -> str | None:
+    """Returns the first IPv4 address for hostname, or None if only IPv6/unresolvable."""
+    try:
+        infos = socket.getaddrinfo(hostname, port, socket.AF_INET, socket.SOCK_STREAM)
+        if infos:
+            return infos[0][4][0]
+    except Exception:
+        return None
+    return None
+
+
+def _build_supabase_postgres_url(
+    db_host: str,
+    db_port: int,
+    db_name: str,
+    db_user: str,
+    db_password: str,
+    pooler_region: str = "aws-1-us-west-2",
+) -> str:
+    """
+    Builds a SQLAlchemy postgresql+psycopg URL from Supabase credentials.
+    Automatically falls back to the Supabase IPv4 Session Pooler when the direct
+    host (db.<ref>.supabase.co) only has IPv6 DNS records on an IPv4-only network.
+    """
+    actual_host = db_host.strip()
+    actual_user = db_user.strip()
+    actual_port = int(db_port or 5432)
+
+    ipv4 = _resolve_ipv4(actual_host, actual_port)
+    if not ipv4 and actual_host.startswith("db.") and actual_host.endswith(".supabase.co"):
+        project_ref = actual_host[len("db.") : -len(".supabase.co")]
+        pooler_host = os.getenv("SUPABASE_POOLER_HOST", f"{pooler_region}.pooler.supabase.com")
+        actual_host = pooler_host
+        if "." not in actual_user:
+            actual_user = f"{actual_user}.{project_ref}"
+        ipv4 = _resolve_ipv4(pooler_host, actual_port)
+
+    encoded_user = quote_plus(actual_user)
+    encoded_pass = quote_plus(db_password)
+    base_url = f"postgresql+psycopg://{encoded_user}:{encoded_pass}@{actual_host}:{actual_port}/{db_name}"
+    if ipv4:
+        return f"{base_url}?hostaddr={ipv4}&connect_timeout=10"
+    return f"{base_url}?connect_timeout=10"
 
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "AIOps OpsPages"
-    VERSION: str = "1.0.0"
-    API_V1_STR: str = "/api/v1"
-    ENVIRONMENT: str = "development"
-    LOG_LEVEL: str = "INFO"
-
-    # Security & JWT
-    SECRET_KEY: str = "aiops-opspages-super-secret-key-change-in-production-loft-br"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
-
-    # Platform Meta Database (Supports SQLite, PostgreSQL, MariaDB/MySQL)
-    OPSPAGES_META_DB_URL: str = "sqlite:///./opspages_meta.db"
-    OPSPAGES_DB_ENGINE: str = "sqlite"  # sqlite | postgresql | mariadb
-    DB_HOST: str = "localhost"
-    DB_PORT: int = 5432
-    DB_USER: str = "postgres"
-    DB_PASSWORD: str = ""
-    DB_NAME: str = "aiops_opspages"
-    DB_SSLMODE: str = "prefer"
-
-    # Default Super Admin Seed (loaded from .env)
-    DEFAULT_SUPERADMIN_EMAIL: str = "willian.jesus@loft.com.br"
-    DEFAULT_SUPERADMIN_USERNAME: str = "willian.jesus"
-    DEFAULT_SUPERADMIN_NAME: str = "Willian Jesus"
-    DEFAULT_SUPERADMIN_PASSWORD: str = ""
-    BOOTSTRAP_ADMIN_EMAIL: str = ""
-    BOOTSTRAP_ADMIN_USERNAME: str = ""
-    BOOTSTRAP_ADMIN_NAME: str = ""
-    BOOTSTRAP_ADMIN_PASSWORD: str = ""
-    aiops_opsbase_user: str = ""
-    aiops_opsbase_password: str = ""
-    aiops_app_builder_user: str = ""
-    aiops_app_builder_password: str = ""
-
-    # Git & Static Repositories Storage Path (/repos)
-    REPOS_STORAGE_DIR: str = "../repos"
-
-    # Default Project Quota Values
-    DEFAULT_MAX_BUILD_SIZE_MB: int = 250
-    DEFAULT_MAX_STORAGE_MB: int = 2048
-    DEFAULT_MAX_DEPLOYS_PER_DAY: int = 100
-    DEFAULT_MAX_RETAINED_VERSIONS: int = 50
-
-    # CORS (Explicit Allowlist - P-10)
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5175",
-        "http://127.0.0.1:5175",
-        "http://localhost:5176",
-        "http://127.0.0.1:5176",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://localhost:8001",
-        "http://127.0.0.1:8001",
-        "http://localhost:8005",
-        "http://127.0.0.1:8005",
-        "http://localhost:8010",
-        "http://127.0.0.1:8010",
-    ]
-
-    # AIOps OpsBase Integration (Part 2 - P-13 & Discovery)
-    OPSBASE_BASE_URL: str = "http://localhost:8001"
-    OPSBASE_DEFAULT_API_URL: str = "http://localhost:8001/api/v1"
-    OPSBASE_STAGING_API_URL: str = "http://localhost:8001/api/v1"
-    OPSBASE_DEVELOPMENT_API_URL: str = "http://localhost:8001/api/v1"
-    OPSBASE_PREVIEW_API_URL: str = "http://localhost:8001/api/v1"
-    OPSBASE_WEBHOOK_SECRET: str = "aiops-opsbase-opspages-webhook-secret-loft"
-    # Max staleness (Item P-13d) before a read of the public config opportunistically
-    # re-syncs from OpsBase discovery. There is no push webhook from OpsBase itself on
-    # key rotation today (OpsPages only RECEIVES one at /webhooks/opsbase if OpsBase were
-    # to call it), so this TTL is the actual upper bound on propagation delay — kept
-    # short deliberately so "no manual sync, no redeploy" stays true in practice.
-    OPSBASE_PUBLIC_CONFIG_SYNC_TTL_SECONDS: int = 10
-    OPSPAGES_PUBLIC_ORIGIN: str = "http://localhost:8005"
-    OPSPAGES_FRONTEND_ORIGIN: str = "http://localhost:5176"
-    # round6 proposal (cors-sync-guard): the startup loop no longer pushes CORS origins to OpsBase unless
-    # explicitly enabled. Linking (`POST /projects/{id}/opsbase/link`) still honours its own `sync_cors` flag.
-    OPSPAGES_STARTUP_CORS_SYNC: bool = False
-
-    def get_default_opsbase_url_for_env(self, environment: str = "production") -> str:
-        env = (environment or "production").strip().lower()
-        mapping = {
-            "production": self.OPSBASE_DEFAULT_API_URL,
-            "staging": self.OPSBASE_STAGING_API_URL,
-            "development": self.OPSBASE_DEVELOPMENT_API_URL,
-            "preview": self.OPSBASE_PREVIEW_API_URL,
-        }
-        return mapping.get(env, self.OPSBASE_DEFAULT_API_URL)
-
-    # Paths
-    BASE_DIR: Path = Path(__file__).resolve().parent.parent.parent
-
     model_config = SettingsConfigDict(
-        env_file=(
-            str(Path(__file__).resolve().parent.parent.parent.parent / ".env"),
-            str(Path(__file__).resolve().parent.parent.parent / ".env"),
-        ),
+        env_file=str(BASE_DIR / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
 
+    PROJECT_NAME: str = "Olivelas SmartPages — Static Hosting & Governance"
+    APP_NAME: str = "Olivelas SmartPages — Static Hosting & Governance"
+    VERSION: str = "1.0.0"
+    APP_VERSION: str = "1.0.0"
+    ENVIRONMENT: str = "production"
+    LOG_LEVEL: str = "INFO"
+    API_V1_STR: str = "/api/v1"
+    DEBUG: bool = False
+
+    # Server
+    HOST: str = "0.0.0.0"
+    PORT: int = 8005
+
+    # Security & JWT
+    SECRET_KEY: str = os.getenv(
+        "OPSPAGES_JWT_SECRET",
+        os.getenv("SECRET_KEY", "olivelas-smartpages-jwt-secret-key-production-2026"),
+    )
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(
+        os.getenv("OPSPAGES_JWT_EXPIRE_MINUTES", os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
+    )
+
+    # Supabase API & PostgreSQL Credentials (.env)
+    VITE_SUPABASE_URL: str = os.getenv("VITE_SUPABASE_URL", "")
+    VITE_SUPABASE_KEY: str = os.getenv("VITE_SUPABASE_KEY", "")
+    db_host: str = os.getenv("db_host", os.getenv("DB_HOST", ""))
+    db_port: int = int(os.getenv("db_port", os.getenv("DB_PORT", "5432")))
+    db: str = os.getenv("db", os.getenv("DB", "postgres"))
+    db_username: str = os.getenv(
+        "db_username",
+        os.getenv("DB_USERNAME", os.getenv("username", "postgres")),
+    )
+    db_password: str = os.getenv("db_password", os.getenv("DB_PASSWORD", ""))
+
+    # Isolated Schema for this project in Supabase
+    DB_SCHEMA: str = os.getenv("DB_SCHEMA", os.getenv("VITE_SUPABASE_SCHEMA", "smartpages"))
+    OPSPAGES_META_DB_URL: str = os.getenv("OPSPAGES_META_DB_URL", "")
+
+    # First-user registration policy (First user registered becomes Global Admin)
+    FIRST_USER_IS_GLOBAL_ADMIN: bool = (
+        os.getenv("FIRST_USER_IS_GLOBAL_ADMIN", "true").lower() in ("1", "true", "yes")
+    )
+
+    # Optional legacy/bootstrap admin env vars (kept empty by default so first registration is Global Admin)
+    DEFAULT_SUPERADMIN_EMAIL: str = os.getenv("DEFAULT_SUPERADMIN_EMAIL", "")
+    DEFAULT_SUPERADMIN_USERNAME: str = os.getenv("DEFAULT_SUPERADMIN_USERNAME", "")
+    DEFAULT_SUPERADMIN_NAME: str = os.getenv("DEFAULT_SUPERADMIN_NAME", "")
+    DEFAULT_SUPERADMIN_PASSWORD: str = os.getenv("DEFAULT_SUPERADMIN_PASSWORD", "")
+    BOOTSTRAP_ADMIN_EMAIL: str = os.getenv("BOOTSTRAP_ADMIN_EMAIL", "")
+    BOOTSTRAP_ADMIN_USERNAME: str = os.getenv("BOOTSTRAP_ADMIN_USERNAME", "")
+    BOOTSTRAP_ADMIN_NAME: str = os.getenv("BOOTSTRAP_ADMIN_NAME", "")
+    BOOTSTRAP_ADMIN_PASSWORD: str = os.getenv("BOOTSTRAP_ADMIN_PASSWORD", "")
+
+    aiops_opsbase_user: str = os.getenv("aiops_opsbase_user", "")
+    aiops_opsbase_password: str = os.getenv("aiops_opsbase_password", "")
+    aiops_app_builder_password: str = os.getenv("aiops_app_builder_password", "")
+    aiops_opspages_password: str = os.getenv("aiops_opspages_password", "")
+
+    # Storage & Git Repository Paths
+    REPOS_STORAGE_DIR: str = os.getenv("REPOS_STORAGE_DIR", "../repos")
+    STORAGE_ROOT: Path = BASE_DIR / "storage"
+    SITES_STORAGE_DIR: Path = BASE_DIR / "storage" / "sites"
+    GIT_REPOS_DIR: Path = BASE_DIR / "storage" / "git_repos"
+    TEMP_UPLOADS_DIR: Path = BASE_DIR / "storage" / "tmp"
+
+    # Default Project Quotas
+    DEFAULT_MAX_BUILD_SIZE_MB: int = int(os.getenv("DEFAULT_MAX_BUILD_SIZE_MB", "250"))
+    DEFAULT_MAX_STORAGE_MB: int = int(os.getenv("DEFAULT_MAX_STORAGE_MB", "2048"))
+    DEFAULT_MAX_DEPLOYS_PER_DAY: int = int(os.getenv("DEFAULT_MAX_DEPLOYS_PER_DAY", "100"))
+    DEFAULT_MAX_RETAINED_VERSIONS: int = int(os.getenv("DEFAULT_MAX_RETAINED_VERSIONS", "50"))
+    DEFAULT_MAX_UPLOAD_MB: int = 100
+    DEFAULT_MAX_FILES_PER_DEPLOY: int = 2500
+
+    # OpsBase / Runtime Integration Settings
+    OPSBASE_BASE_URL: str = os.getenv(
+        "OPSBASE_BASE_URL",
+        os.getenv("VITE_SUPABASE_URL", "http://localhost:8001"),
+    )
+    OPSBASE_DEFAULT_API_URL: str = os.getenv(
+        "OPSBASE_DEFAULT_API_URL",
+        "http://localhost:8001/api/v1",
+    )
+    OPSPAGES_PUBLIC_ORIGIN: str = os.getenv("OPSPAGES_PUBLIC_ORIGIN", "http://localhost:8005")
+    OPSPAGES_FRONTEND_ORIGIN: str = os.getenv("OPSPAGES_FRONTEND_ORIGIN", "http://localhost:5185")
+    OPSPAGES_STARTUP_CORS_SYNC: bool = False
+    OPSBASE_PUBLIC_CONFIG_SYNC_TTL_SECONDS: int = 300
+    OPSBASE_WEBHOOK_SECRET: str = os.getenv("OPSBASE_WEBHOOK_SECRET", "")
+
+    # Platform CORS (Control Plane API)
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:5185",
+        "http://127.0.0.1:5185",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8005",
+        "http://127.0.0.1:8005",
+        "https://pycriador.github.io",
+    ]
+    BACKEND_CORS_ORIGINS: List[str] = ["*"]
+
+    @property
+    def repos_root_path(self) -> Path:
+        raw = Path(self.REPOS_STORAGE_DIR)
+        if raw.is_absolute():
+            return raw
+        return (BASE_DIR / raw).resolve()
+
     @property
     def effective_superadmin_password(self) -> str:
-        """Resolves the Super Admin password from environment configuration (.env)."""
         for candidate in (
             self.DEFAULT_SUPERADMIN_PASSWORD,
-            self.aiops_opsbase_password,
             self.BOOTSTRAP_ADMIN_PASSWORD,
-            self.aiops_app_builder_password,
+            self.aiops_opspages_password,
         ):
             if candidate and candidate.strip():
                 return candidate.strip()
         return ""
 
     @property
-    def valid_superadmin_passwords(self) -> List[str]:
-        """Returns all configured Super Admin password candidates from .env files."""
-        seen: List[str] = []
-        for candidate in (
-            self.DEFAULT_SUPERADMIN_PASSWORD,
-            self.aiops_opsbase_password,
-            self.BOOTSTRAP_ADMIN_PASSWORD,
-            self.aiops_app_builder_password,
-        ):
-            val = (candidate or "").strip()
-            if val and val not in seen:
-                seen.append(val)
-        return seen
+    def valid_superadmin_passwords(self) -> Set[str]:
+        return {
+            p.strip()
+            for p in (
+                self.DEFAULT_SUPERADMIN_PASSWORD,
+                self.BOOTSTRAP_ADMIN_PASSWORD,
+                self.aiops_opspages_password,
+                self.aiops_app_builder_password,
+            )
+            if p and p.strip()
+        }
 
-    @property
-    def repos_root_path(self) -> Path:
-        """Resolves the absolute path to the /repos directory."""
-        raw = Path(self.REPOS_STORAGE_DIR)
-        if raw.is_absolute():
-            path = raw
-        else:
-            path = (self.BASE_DIR / raw).resolve()
-        path.mkdir(parents=True, exist_ok=True)
-        return path
+    def get_default_opsbase_url_for_env(self, env_name: str = "production") -> str:
+        if self.VITE_SUPABASE_URL:
+            return f"{self.VITE_SUPABASE_URL.rstrip('/')}/rest/v1"
+        return self.OPSBASE_DEFAULT_API_URL
 
     def get_database_url(self) -> str:
         """
-        Returns the active SQLAlchemy connection URL.
-        Supports direct OPSPAGES_META_DB_URL or builds URL from OPSPAGES_DB_ENGINE.
-        Automatically normalizes postgres:// and mysql:// schemes to SQLAlchemy 2.0 drivers.
+        Resolves the active SQLAlchemy database URL:
+        1. Explicit OPSPAGES_META_DB_URL environment variable (used by tests or custom overrides)
+        2. Supabase PostgreSQL connection built from db_host, db_port, db, db_username, db_password
+        3. Local SQLite fallback if no Supabase credentials are configured
         """
-        url = (self.OPSPAGES_META_DB_URL or "").strip()
-        engine_type = (self.OPSPAGES_DB_ENGINE or "sqlite").strip().lower()
+        explicit_url = (self.OPSPAGES_META_DB_URL or os.getenv("OPSPAGES_META_DB_URL", "")).strip()
+        if explicit_url:
+            return explicit_url
 
-        if url and not (url == "sqlite:///./opspages_meta.db" and engine_type in ("postgresql", "postgres", "mariadb", "mysql")):
-            if url == "sqlite:///./opspages_meta.db":
-                return f"sqlite:///{(self.BASE_DIR / 'opspages_meta.db').resolve()}"
-            if url.startswith("postgres://"):
-                return url.replace("postgres://", "postgresql+psycopg://", 1)
-            if url.startswith("postgresql://") and "+psycopg" not in url:
-                return url.replace("postgresql://", "postgresql+psycopg://", 1)
-            if (url.startswith("mysql://") or url.startswith("mariadb://")) and "+pymysql" not in url:
-                prefix = "mysql://" if url.startswith("mysql://") else "mariadb://"
-                return url.replace(prefix, "mysql+pymysql://", 1)
-            return url
-
-        if engine_type in ("postgresql", "postgres"):
-            port = self.DB_PORT or 5432
-            return (
-                f"postgresql+psycopg://{self.DB_USER}:{self.DB_PASSWORD}"
-                f"@{self.DB_HOST}:{port}/{self.DB_NAME}?sslmode={self.DB_SSLMODE}"
+        if self.db_host and self.db_password:
+            return _build_supabase_postgres_url(
+                db_host=self.db_host,
+                db_port=self.db_port,
+                db_name=self.db,
+                db_user=self.db_username,
+                db_password=self.db_password,
             )
-        if engine_type in ("mariadb", "mysql"):
-            port = self.DB_PORT if self.DB_PORT != 5432 else 3306
-            return (
-                f"mysql+pymysql://{self.DB_USER}:{self.DB_PASSWORD}"
-                f"@{self.DB_HOST}:{port}/{self.DB_NAME}?charset=utf8mb4"
-            )
-        return "sqlite:///./opspages_meta.db"
+
+        return f"sqlite:///{BASE_DIR / 'opspages_meta.db'}"
+
+    @property
+    def META_DB_URL(self) -> str:
+        return self.get_database_url()
+
+    def ensure_directories(self) -> None:
+        for directory in (
+            self.STORAGE_ROOT,
+            self.SITES_STORAGE_DIR,
+            self.GIT_REPOS_DIR,
+            self.TEMP_UPLOADS_DIR,
+            self.repos_root_path,
+        ):
+            directory.mkdir(parents=True, exist_ok=True)
 
 
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
-
-
-settings = get_settings()
+settings = Settings()
+settings.ensure_directories()
