@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Migration 001: Isolated Schema `smartpages` & Core Structural Tables
--- Project: Olivelas SmartPages (AIOps OpsPages Static Hosting & Governance)
+-- Project: Olivelas SmartPages (Olivelas OpsPages Static Hosting & Governance)
 -- Target Schema: smartpages (strictly isolated from public and other schemas)
 -- =============================================================================
 

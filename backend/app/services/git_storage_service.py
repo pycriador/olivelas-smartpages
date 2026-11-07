@@ -1,5 +1,5 @@
 """
-Git Storage & Version Control Engine for AIOps OpsPages (/repos/{project-slug}/).
+Git Storage & Version Control Engine for Olivelas OpsPages (/repos/{project-slug}/).
 Manages per-project Git repositories, release snapshots, file inspection, diffs, and GitHub synchronization.
 """
 from __future__ import annotations
@@ -101,8 +101,8 @@ class GitStorageService:
         if not (git_dir / ".git").exists():
             branch = project.github_branch or "main"
             cls._run_git(git_dir, ["init", "-b", branch])
-            cls._run_git(git_dir, ["config", "user.name", "AIOps OpsPages Engine"])
-            cls._run_git(git_dir, ["config", "user.email", "opspages@loft.com.br"])
+            cls._run_git(git_dir, ["config", "user.name", "Olivelas OpsPages Engine"])
+            cls._run_git(git_dir, ["config", "user.email", "opspages@olivelas.com.br"])
 
         if project.github_repo_url:
             cls.configure_remote(project)
@@ -205,7 +205,7 @@ class GitStorageService:
         manifest_path.write_text(json.dumps(manifest_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
         cls._run_git(git_dir, ["config", "user.name", author_name or "OpsPages Deployer"])
-        cls._run_git(git_dir, ["config", "user.email", author_email or "opspages@loft.com.br"])
+        cls._run_git(git_dir, ["config", "user.email", author_email or "opspages@olivelas.com.br"])
         cls._run_git(git_dir, ["add", "-A"])
 
         commit_msg = f"Release {version}: {release_notes or 'Static build deployment'}"

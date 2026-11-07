@@ -106,7 +106,7 @@ def _resolve_api_token_user(db: Session, raw_key: str) -> User:
     synthetic_user = User(
         id=api_token.created_by or 0,
         username=f"token:{api_token.name}",
-        email=f"token-{api_token.token_prefix}@opspages.loft.local",
+        email=f"token-{api_token.token_prefix}@opspages.olivelas.local",
         hashed_password="",
         full_name=f"API Token ({api_token.name})",
         is_active=True,

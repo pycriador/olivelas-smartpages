@@ -19,12 +19,12 @@ NC='\033[0m'
 
 print_banner() {
   echo -e "${ORANGE}=================================================================${NC}"
-  echo -e "${ORANGE}  AIOps OpsPages — Enterprise Static Builds & Git /repos Hub     ${NC}"
+  echo -e "${ORANGE}  Olivelas OpsPages — Enterprise Static Builds & Git /repos Hub  ${NC}"
   echo -e "${ORANGE}=================================================================${NC}"
 }
 
 init_db() {
-  echo -e "${GREEN}[OpsPages]${NC} Inicializando banco de metadados e Super Admin padrão..."
+  echo -e "${GREEN}[OpsPages]${NC} Inicializando banco de metadados e configurações da plataforma..."
   (cd "$BACKEND_DIR" && python3 scripts/setup_db.py)
 }
 
@@ -92,7 +92,7 @@ status_services() {
   echo -e "  ⚡ Backend API      : http://localhost:${BACKEND_PORT}/api/v1"
   echo -e "  📖 Swagger Docs     : http://localhost:${BACKEND_PORT}/docs"
   echo -e "  📦 Static Hosting   : http://localhost:${BACKEND_PORT}/pages/{project-slug}/"
-  echo -e "  👤 Super Admin      : willian.jesus@loft.com.br (Credenciais definidas no .env)"
+  echo -e "  👤 Global Admin     : Primeiro usuário cadastrado na plataforma (ou via manage_users.py)"
   echo ""
 }
 

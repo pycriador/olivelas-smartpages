@@ -1,5 +1,5 @@
 """
-AIOps OpsBase Integration Service (Part 2 - P-13, Discovery, Key Sync & CORS Alignment).
+Olivelas OpsBase Integration Service (Part 2 - P-13, Discovery, Key Sync & CORS Alignment).
 
 Responsibilities:
 1. Project Linking & Discovery:
@@ -598,7 +598,7 @@ class OpsBaseIntegrationService:
                         json={
                             "name": project.name,
                             "slug": provision_slug,
-                            "description": f"Projeto vinculado automaticamente ao AIOps OpsPages ({project.slug})",
+                            "description": f"Projeto vinculado automaticamente ao Olivelas OpsPages ({project.slug})",
                         },
                     )
                     if create_resp.status_code in (200, 201):

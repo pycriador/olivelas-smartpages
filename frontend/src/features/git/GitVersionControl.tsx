@@ -160,7 +160,7 @@ export const GitVersionControl: React.FC = () => {
             <Input
               value={remoteUrl}
               onChange={(e) => setRemoteUrl(e.target.value)}
-              placeholder="https://github.com/loft-br/opspages-repos.git"
+              placeholder="https://github.com/pycriador/olivelas-smartpages.git"
               className="font-mono text-xs"
             />
           </div>

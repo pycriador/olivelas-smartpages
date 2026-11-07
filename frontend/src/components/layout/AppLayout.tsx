@@ -367,17 +367,17 @@ export const AppLayout: React.FC = () => {
               boxShadow: `0 4px 12px ${theme.primary}40`,
             }}
             onClick={!isMobile ? toggleCollapsed : undefined}
-            title={isSidebarCollapsed ? 'Expandir Menu' : 'AIOps OpsPages'}
+            title={isSidebarCollapsed ? 'Expandir Menu' : 'Olivelas OpsPages'}
           >
             ▲
           </div>
           {!isSidebarCollapsed && (
             <div className="overflow-hidden">
               <div className="font-bold text-white text-sm tracking-wide truncate">
-                AIOps OpsPages
+                Olivelas OpsPages
               </div>
               <div className="text-[10px] text-[#A0AEC0] truncate">
-                Loft Static Hosting Platform
+                Olivelas Static Hosting Platform
               </div>
             </div>
           )}

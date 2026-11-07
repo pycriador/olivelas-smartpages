@@ -204,7 +204,7 @@ export const ProjectDashboard: React.FC<ProjectDashboardProps> = ({ onOpenCreate
   const isTokenRevealed = Boolean(showDeployToken && deployToken && !String(deployToken).includes('•'));
 
   const envSnippet = `# ============================================================================
-# AIOps OpsPages — Credenciais CI/CD do Projeto: ${activeProject.name}
+# Olivelas OpsPages — Credenciais CI/CD do Projeto: ${activeProject.name}
 # Diretório Git /repos: /repos/${activeProject.slug}
 # ============================================================================
 
@@ -226,7 +226,7 @@ curl -X POST "${uploadEndpoint}" \\
 
   const ghaSnippet =
     credentialsData?.github_actions_workflow ||
-    `name: Deploy Static Build to AIOps OpsPages
+    `name: Deploy Static Build to Olivelas OpsPages
 on:
   push:
     branches: [ main ]

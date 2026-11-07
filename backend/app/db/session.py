@@ -1,5 +1,5 @@
 """
-Database session management for Olivelas SmartPages (AIOps OpsPages).
+Database session management for Olivelas SmartPages (Olivelas OpsPages).
 Supports Supabase PostgreSQL (isolated `smartpages` schema), SQLite, and MariaDB/MySQL.
 Initializes tables and seeds ONLY platform configurations, HBAC role groups, and visual themes.
 Users and projects start empty so the first user registered becomes the Global Admin.
@@ -126,7 +126,7 @@ DEFAULT_PLATFORM_SETTINGS = [
         {
             "app_name": "Olivelas SmartPages — Static Hosting & Governance",
             "short_name": "SmartPages",
-            "organization": "Olivelas / Loft Engineering",
+            "organization": "Olivelas Engineering",
             "tagline": "Plataforma Corporativa de Publicação Estática, Versionamento Git e Governança HBAC",
             "repository_url": "https://github.com/pycriador/olivelas-smartpages",
             "schema": settings.DB_SCHEMA or "smartpages",
@@ -188,7 +188,7 @@ DEFAULT_PLATFORM_SETTINGS = [
 ]
 
 DEFAULT_THEMES = [
-    ("loft-classic", "Loft Classic (Laranja Copan)", "light", False, "#F56738", "#D94616", "#B83208", "#F4F7F9", "#FFFFFF", "#121619", "#FFFFFF", "#1A2024", "#E1E9EF", "#F56738", False, 1),
+    ("loft-classic", "Olivelas Classic (Laranja Copan)", "light", False, "#F56738", "#D94616", "#B83208", "#F4F7F9", "#FFFFFF", "#121619", "#FFFFFF", "#1A2024", "#E1E9EF", "#F56738", False, 1),
     ("emerald-supabase", "Emerald Supabase", "light", False, "#24B47E", "#1EA06E", "#17855B", "#F6FBF8", "#FFFFFF", "#0E1E17", "#FFFFFF", "#182C23", "#D2EDE0", "#24B47E", False, 2),
     ("sapphire-tech", "Sapphire Tech (Azul Corporativo)", "light", False, "#1677FF", "#4096FF", "#0958D9", "#F4F8FC", "#FFFFFF", "#0A1626", "#FFFFFF", "#102A45", "#D0E2FF", "#1677FF", False, 3),
     ("royal-violet", "Royal Violet (Roxo Real)", "light", False, "#722ED1", "#9254DE", "#531DAB", "#F8F6FD", "#FFFFFF", "#1A0E2E", "#FFFFFF", "#22075E", "#EFDBFF", "#722ED1", False, 4),
@@ -198,7 +198,7 @@ DEFAULT_THEMES = [
     ("amber-gold", "Amber Gold (Dourado Âmbar)", "light", False, "#FAAD14", "#FFC53D", "#D48806", "#FDFBF2", "#FFFFFF", "#241D09", "#FFFFFF", "#362602", "#FFE58F", "#FAAD14", False, 8),
     ("forest-mint", "Forest Mint (Verde Floresta)", "light", False, "#52C41A", "#73D13D", "#389E0D", "#F6FCF2", "#FFFFFF", "#102409", "#FFFFFF", "#132B09", "#D9F7BE", "#52C41A", False, 9),
     ("slate-graphite", "Slate Graphite (Grafite Executivo)", "light", False, "#4A5568", "#718096", "#2D3748", "#F7FAFC", "#FFFFFF", "#1A202C", "#FFFFFF", "#1A202C", "#E2E8F0", "#4A5568", False, 10),
-    ("loft-obsidian", "Loft Obsidian (Escuro Copan)", "dark", True, "#F56738", "#FF8155", "#D94616", "#0E1216", "#141A1E", "#0A0D10", "#141A1E", "#F0F4F8", "#2A3640", "#F56738", True, 11),
+    ("loft-obsidian", "Olivelas Obsidian (Escuro Copan)", "dark", True, "#F56738", "#FF8155", "#D94616", "#0E1216", "#141A1E", "#0A0D10", "#141A1E", "#F0F4F8", "#2A3640", "#F56738", True, 11),
     ("supabase-midnight", "Supabase Midnight", "dark", True, "#24B47E", "#33D998", "#1EA06E", "#121212", "#1C1C1C", "#0D0D0D", "#1C1C1C", "#EDEDED", "#2E2E2E", "#24B47E", False, 12),
     ("cyberpunk-neon", "Cyberpunk Neon", "dark", True, "#00F0FF", "#38F4FF", "#00C3CF", "#0B0F19", "#111827", "#070A11", "#111827", "#F3F4F6", "#1F2937", "#00F0FF", False, 13),
     ("synthwave-violet", "Synthwave Violet", "dark", True, "#BD34FE", "#D369FF", "#9A15DC", "#130B24", "#1E1235", "#0C0617", "#1E1235", "#F5F3FF", "#341E5C", "#BD34FE", False, 14),

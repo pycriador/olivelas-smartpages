@@ -43,7 +43,7 @@ interface RawTheme {
 const RAW_LIGHT_THEMES: RawTheme[] = [
   {
     id: 'loft-classic',
-    name: 'Loft Classic (Laranja Copan)',
+    name: 'Olivelas Classic (Laranja Copan)',
     type: 'light',
     primary: '#F56738',
     primaryHover: '#D94616',
@@ -196,7 +196,7 @@ const RAW_LIGHT_THEMES: RawTheme[] = [
 const RAW_DARK_THEMES: RawTheme[] = [
   {
     id: 'loft-obsidian',
-    name: 'Loft Obsidian (Escuro Copan)',
+    name: 'Olivelas Obsidian (Escuro Copan)',
     type: 'dark',
     primary: '#F56738',
     primaryHover: '#FF8155',

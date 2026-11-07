@@ -127,11 +127,11 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
 
   const handleOpenReportModal = () => {
     form.setFieldsValue({
-      project_slug: activeProject?.slug || projects[0]?.slug || 'aiops-crud',
+      project_slug: activeProject?.slug || projects[0]?.slug || 'olivelas-crud',
       page_url:
         typeof window !== 'undefined'
           ? window.location.href
-          : 'http://localhost:8005/pages/aiops-crud/',
+          : 'http://localhost:8005/pages/olivelas-crud/',
       route_path: typeof window !== 'undefined' ? window.location.pathname : '/errors',
       error_code: 'OPSPAGES-CLIENT-ERR',
       http_status: 500,
@@ -546,8 +546,8 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
                   ...projects.map((p) => ({ value: p.slug, label: `${p.name} (${p.slug})` })),
                   ...(projects.length === 0
                     ? [
-                        { value: 'aiops-crud', label: 'aiops-crud' },
-                        { value: 'portal-loft', label: 'portal-loft' },
+                        { value: 'olivelas-crud', label: 'olivelas-crud' },
+                        { value: 'portal-olivelas', label: 'portal-olivelas' },
                       ]
                     : []),
                 ]}
@@ -576,10 +576,10 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
               className="sm:col-span-2"
               rules={[{ required: true, message: 'Informe a URL onde o erro ocorreu' }]}
             >
-              <Input placeholder="http://localhost:8005/pages/aiops-crud/" />
+              <Input placeholder="http://localhost:8005/pages/olivelas-crud/" />
             </Form.Item>
             <Form.Item label="Rota (Path)" name="route_path">
-              <Input placeholder="/pages/aiops-crud/" />
+              <Input placeholder="/pages/olivelas-crud/" />
             </Form.Item>
           </div>
 
@@ -591,7 +591,7 @@ export const ErrorsManager: React.FC<ErrorsManagerProps> = ({ standalone = false
               <InputNumber className="w-full" min={100} max={599} placeholder="Ex: 404, 500" />
             </Form.Item>
             <Form.Item label="E-mail / Autor (Opcional)" name="reporter_email">
-              <Input placeholder="qa@loft.com.br" />
+              <Input placeholder="qa@olivelas.com.br" />
             </Form.Item>
           </div>
 

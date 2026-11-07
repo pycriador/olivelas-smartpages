@@ -252,7 +252,7 @@ export const SettingsPage: React.FC = () => {
               <Col xs={24} md={12}>
                 <Form.Item name="github_repo_url" label="GitHub Repository URL">
                   <Input
-                    placeholder="https://github.com/loft-br/opspages-repos.git"
+                    placeholder="https://github.com/pycriador/olivelas-smartpages.git"
                     className="font-mono text-xs"
                   />
                 </Form.Item>
@@ -269,7 +269,7 @@ export const SettingsPage: React.FC = () => {
               </Col>
               <Col xs={24} md={4}>
                 <Form.Item name="custom_domain" label="Domínio Customizado">
-                  <Input placeholder="pages.loft.com.br" className="font-mono text-xs" />
+                  <Input placeholder="pages.olivelas.com.br" className="font-mono text-xs" />
                 </Form.Item>
               </Col>
             </Row>

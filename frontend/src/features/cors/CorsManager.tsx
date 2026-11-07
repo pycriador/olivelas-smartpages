@@ -237,7 +237,7 @@ export const CorsManager: React.FC = () => {
           form={form}
           layout="vertical"
           initialValues={{
-            allowed_origin: 'https://app.loft.com.br',
+            allowed_origin: 'https://app.olivelas.com.br',
             allowed_methods: 'GET,HEAD,OPTIONS',
             allowed_headers: 'Authorization,Content-Type',
             allow_credentials: false,

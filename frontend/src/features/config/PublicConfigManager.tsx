@@ -282,7 +282,7 @@ export const PublicConfigManager: React.FC = () => {
                 <Alert
                   type="info"
                   showIcon
-                  message="Vínculo com AIOps OpsBase Discovery & Entrega Runtime no-cache (P-13)"
+                  message="Vínculo com Olivelas OpsBase Discovery & Entrega Runtime no-cache (P-13)"
                   description={
                     <div className="text-xs flex flex-col gap-1.5 mt-1">
                       <div>
@@ -359,7 +359,7 @@ export const PublicConfigManager: React.FC = () => {
                   <Form form={envForm} layout="vertical">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       <Form.Item
-                        label="URL do AIOps OpsBase (por Ambiente)"
+                        label="URL do Olivelas OpsBase (por Ambiente)"
                         name="opsbase_url"
                         rules={[{ required: true }]}
                         extra="Padrão dev: http://localhost:8001/api/v1 (configurável por ambiente para futuros DNS próprios)"
@@ -497,7 +497,7 @@ export const PublicConfigManager: React.FC = () => {
                       label="Domínio Próprio do Projeto (Custom Domain • P-9)"
                       name="custom_domain"
                     >
-                      <Input placeholder="https://app.loft.com.br" />
+                      <Input placeholder="https://app.olivelas.com.br" />
                     </Form.Item>
                     <Form.Item label="X-Frame-Options" name="x_frame_options">
                       <Select

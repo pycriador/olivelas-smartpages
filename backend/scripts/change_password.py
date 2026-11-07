@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-AIOps OpsPages - Script Administrativo: Alteração de Senha de Usuário.
+Olivelas OpsPages - Script Administrativo: Alteração de Senha de Usuário.
 
 Uso:
-  python scripts/change_password.py --user willian.jesus@loft.com.br --password "NovaSenha@123"
+  python scripts/change_password.py --user admin@olivelas.com --password "NovaSenha@123"
   ou interativo:
   python scripts/change_password.py
 """
@@ -23,7 +23,7 @@ from app.models.meta_models import User
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Alterar a senha de um usuário no AIOps OpsPages.")
+    parser = argparse.ArgumentParser(description="Alterar a senha de um usuário no Olivelas OpsPages.")
     parser.add_argument("--user", "-u", type=str, help="Username ou e-mail do usuário")
     parser.add_argument("--password", "-p", type=str, help="Nova senha")
     return parser.parse_args()
@@ -31,7 +31,7 @@ def parse_args():
 
 def main():
     print("=" * 65)
-    print("  AIOps OpsPages — Alteração de Senha de Usuário")
+    print("  Olivelas OpsPages — Alteração de Senha de Usuário")
     print("=" * 65)
 
     init_meta_db()

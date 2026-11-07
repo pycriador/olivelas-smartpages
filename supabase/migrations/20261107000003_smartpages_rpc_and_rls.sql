@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Migration 003: Supabase RPC Functions & RLS Policies for `smartpages`
--- Project: Olivelas SmartPages (AIOps OpsPages Static Hosting & Governance)
+-- Project: Olivelas SmartPages (Olivelas OpsPages Static Hosting & Governance)
 -- Enables seamless operation both via FastAPI Backend and directly from
 -- GitHub Pages Frontend via PostgREST (`Accept-Profile: smartpages`).
 -- =============================================================================

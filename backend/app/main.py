@@ -1,6 +1,6 @@
 """
-AIOps OpsPages - Main FastAPI Application & Static Pages Server.
-Follows Loft Backend Foundation Vol I & Engineering System standards.
+Olivelas OpsPages - Main FastAPI Application & Static Pages Server.
+Follows Olivelas Backend Foundation Vol I & Engineering System standards.
 Implements P-1 through P-13 Security, Caching, Conditional Requests, Preview Isolation, and Runtime Config Injection.
 """
 from __future__ import annotations
@@ -233,7 +233,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    description="GitHub Pages / Vercel-like Static Build Hosting & Git Versioning Control Plane for Loft.",
+    description="GitHub Pages / Vercel-like Static Build Hosting & Git Versioning Control Plane for Olivelas.",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
@@ -682,7 +682,7 @@ def _serve_static_directory(
     if not base_dir.exists():
         return HTMLResponse(
             status_code=404,
-            content=f"<h3>AIOps OpsPages: Nenhuma build publicada para '{project.slug}' ({version_label})</h3>",
+            content=f"<h3>Olivelas OpsPages: Nenhuma build publicada para '{project.slug}' ({version_label})</h3>",
             headers=headers,
         )
 

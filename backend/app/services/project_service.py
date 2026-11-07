@@ -1,5 +1,5 @@
 """
-Project Service for AIOps OpsPages.
+Project Service for Olivelas OpsPages.
 Handles project creation, update, deletion, version locking, permissions, and CI/CD credentials.
 """
 from __future__ import annotations
@@ -67,14 +67,14 @@ def _build_welcome_static_files(project: Project, seed_version: str = SEED_DEPLO
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>{project.name} — AIOps OpsPages</title>
+  <title>{project.name} — Olivelas OpsPages</title>
   <link rel="stylesheet" href="./assets/style.css" />
 </head>
 <body>
   <div class="container">
-    <div class="badge">AIOps OpsPages • Build Ativa</div>
+    <div class="badge">Olivelas OpsPages • Build Ativa</div>
     <h1>{project.name}</h1>
-    <p class="subtitle">{project.description or 'Aplicação frontend hospedada e versionada no AIOps OpsPages (/repos/' + project.slug + ')'}</p>
+    <p class="subtitle">{project.description or 'Aplicação frontend hospedada e versionada no Olivelas OpsPages (/repos/' + project.slug + ')'}</p>
     <div class="meta-grid">
       <div class="card">
         <span class="label">Slug do Projeto</span>
@@ -94,7 +94,7 @@ def _build_welcome_static_files(project: Project, seed_version: str = SEED_DEPLO
       </div>
     </div>
     <div class="footer">
-      <span>Servido por <strong>Loft AIOps OpsPages</strong> • Controle de Versão Git & Governança HBAC</span>
+      <span>Servido por <strong>Olivelas OpsPages</strong> • Controle de Versão Git & Governança HBAC</span>
     </div>
   </div>
   <script src="./assets/app.js"></script>
@@ -153,7 +153,7 @@ code { color: #FF774A; font-family: 'JetBrains Mono', monospace; font-size: 13px
 .footer { border-top: 1px solid rgba(255, 255, 255, 0.08); padding-top: 18px; font-size: 13px; color: #64748b; }
 strong { color: #FF774A; }
 """
-    js = f"""console.log("AIOps OpsPages — Project '{project.slug}' {seed_version} loaded successfully.");
+    js = f"""console.log("Olivelas OpsPages — Project '{project.slug}' {seed_version} loaded successfully.");
 """
     return {
         "index.html": html,
@@ -773,7 +773,7 @@ class ProjectService:
             f"  -F \"release_notes=Automated build via CI/CD\""
         )
 
-        gh_actions = f"""name: Deploy Static Build to AIOps OpsPages
+        gh_actions = f"""name: Deploy Static Build to Olivelas OpsPages
 on:
   push:
     branches: [ "{project.github_branch or 'main'}" ]
@@ -1287,7 +1287,7 @@ jobs:
         payload = cls.build_runtime_config_payload(db, project, environment, version_override=version_override)
         json_str = json.dumps(payload, ensure_ascii=False)
         return (
-            "/* AIOps OpsPages Public Runtime Configuration (P-13 & Part 2 OpsBase Discovery) */\n"
+            "/* Olivelas OpsPages Public Runtime Configuration (P-13 & Part 2 OpsBase Discovery) */\n"
             "(function(w){\n"
             f"  var cfg = {json_str};\n"
             "  w.__OPSPAGES_CONFIG__ = cfg;\n"

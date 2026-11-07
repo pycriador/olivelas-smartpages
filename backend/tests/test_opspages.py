@@ -1,6 +1,6 @@
 """
-Comprehensive test suite for AIOps OpsPages Backend:
-- Super Admin seeding (willian.jesus@loft.com.br) & JWT authentication
+Comprehensive test suite for Olivelas OpsPages Backend:
+- First user registration automatically promoted to Global Admin & JWT authentication
 - HBAC roles (Admin, Editor, Viewer)
 - Project lifecycle & /repos Git repository initialization
 - Static hosting (/pages/{slug}/ and /pages/{slug}/v/{version}/) + SPA fallback
@@ -171,15 +171,15 @@ def test_full_project_git_deploy_lock_and_approval_flow(client: TestClient):
         "/api/v1/projects",
         headers=headers,
         json={
-            "name": "Loft Checkout Portal",
-            "slug": "loft-checkout",
-            "description": "Frontend static build for Loft Checkout",
+            "name": "Olivelas Checkout Portal",
+            "slug": "olivelas-checkout",
+            "description": "Frontend static build for Olivelas Checkout",
             "environment": "production",
             "auto_approval": True,
             "spa_mode": True,
-            "github_repo_url": "https://github.com/loft-br/checkout-pages.git",
+            "github_repo_url": "https://github.com/pycriador/checkout-pages.git",
             "github_branch": "main",
-            "github_subpath": "/repos/loft-checkout",
+            "github_subpath": "/repos/olivelas-checkout",
         },
     )
     assert proj_res.status_code == 201, proj_res.text
@@ -189,15 +189,15 @@ def test_full_project_git_deploy_lock_and_approval_flow(client: TestClient):
     assert project["auto_approval"] is True
     assert project["is_locked"] is False
 
-    # Verify initial static page is served at /pages/loft-checkout/
-    page_res = client.get("/pages/loft-checkout/")
+    # Verify initial static page is served at /pages/olivelas-checkout/
+    page_res = client.get("/pages/olivelas-checkout/")
     assert page_res.status_code == 200
-    assert "Loft Checkout Portal" in page_res.text
+    assert "Olivelas Checkout Portal" in page_res.text
 
     # Verify SPA fallback works for deep route
-    spa_res = client.get("/pages/loft-checkout/checkout/step-2")
+    spa_res = client.get("/pages/olivelas-checkout/checkout/step-2")
     assert spa_res.status_code == 200
-    assert "Loft Checkout Portal" in spa_res.text
+    assert "Olivelas Checkout Portal" in spa_res.text
 
     # 2. Upload a .zip build (v1.1.0) with auto_approval=True -> auto publishes
     zip_v110 = create_zip_bytes({
@@ -221,13 +221,13 @@ def test_full_project_git_deploy_lock_and_approval_flow(client: TestClient):
     assert len(dep_v110["git_commit_sha"]) >= 7
 
     # Verify live production page is now v1.1.0
-    live_res = client.get("/pages/loft-checkout/")
+    live_res = client.get("/pages/olivelas-checkout/")
     assert "Checkout v1.1.0 Live" in live_res.text
 
     # Verify v0.0.0-seed is still accessible via immutable version preview URL
-    prev_res = client.get("/pages/loft-checkout/v/v0.0.0-seed/")
+    prev_res = client.get("/pages/olivelas-checkout/v/v0.0.0-seed/")
     assert prev_res.status_code == 200
-    assert "Loft Checkout Portal" in prev_res.text
+    assert "Olivelas Checkout Portal" in prev_res.text
 
     # 3. Lock project at v1.1.0
     lock_res = client.post(
@@ -254,9 +254,9 @@ def test_full_project_git_deploy_lock_and_approval_flow(client: TestClient):
     assert dep_v120["status"] == "ready"
 
     # Production URL must still serve v1.1.0!
-    assert "Checkout v1.1.0 Live" in client.get("/pages/loft-checkout/").text
+    assert "Checkout v1.1.0 Live" in client.get("/pages/olivelas-checkout/").text
     # Preview URL serves v1.2.0!
-    assert "Checkout v1.2.0 Canary" in client.get("/pages/loft-checkout/v/v1.2.0/").text
+    assert "Checkout v1.2.0 Canary" in client.get("/pages/olivelas-checkout/v/v1.2.0/").text
 
     # 5. Disable auto_approval and unlock project
     client.put(
@@ -289,7 +289,7 @@ def test_full_project_git_deploy_lock_and_approval_flow(client: TestClient):
     assert dep_v130["status"] == "pending_approval"
 
     # Production is still v1.1.0 before approval
-    assert "Checkout v1.1.0 Live" in client.get("/pages/loft-checkout/").text
+    assert "Checkout v1.1.0 Live" in client.get("/pages/olivelas-checkout/").text
 
     # Approve v1.3.0 -> becomes 'published' and live!
     app_res = client.post(
@@ -299,7 +299,7 @@ def test_full_project_git_deploy_lock_and_approval_flow(client: TestClient):
     )
     assert app_res.status_code == 200
     assert app_res.json()["status"] == "published"
-    assert "Checkout v1.3.0 Approved" in client.get("/pages/loft-checkout/").text
+    assert "Checkout v1.3.0 Approved" in client.get("/pages/olivelas-checkout/").text
 
     # 7. Check Git status, commits, tags, diff, and file explorer
     git_res = client.get(f"/api/v1/projects/{project_id}/git/status", headers=headers)
@@ -343,7 +343,7 @@ def test_hbac_roles_and_audit(client: TestClient):
         headers=admin_headers,
         json={
             "username": "ana.viewer",
-            "email": "ana.viewer@loft.com.br",
+            "email": "ana.viewer@olivelas.com.br",
             "full_name": "Ana Viewer",
             "password": "Viewer@OpsPages2026",
             "role": "viewer",

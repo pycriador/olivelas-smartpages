@@ -191,7 +191,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, on
               label="Nome do Projeto"
               rules={[{ required: true, message: 'Informe o nome do projeto' }]}
             >
-              <Input placeholder="Ex: Loft Design System" onChange={handleNameChange} />
+              <Input placeholder="Ex: Olivelas Design System" onChange={handleNameChange} />
             </Form.Item>
 
             <Form.Item
@@ -202,7 +202,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, on
                 { pattern: /^[a-z0-9][a-z0-9-_]*[a-z0-9]$/, message: 'Use apenas letras minúsculas, números e hífens' },
               ]}
             >
-              <Input addonBefore="/pages/" placeholder="loft-design-system" />
+              <Input addonBefore="/pages/" placeholder="olivelas-design-system" />
             </Form.Item>
           </div>
 
@@ -229,7 +229,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, on
             </Form.Item>
 
             <Form.Item name="custom_domain" label="Domínio Customizado (Opcional)">
-              <Input placeholder="pages.internal.loft.com.br" />
+              <Input placeholder="pages.internal.olivelas.com.br" />
             </Form.Item>
           </div>
 
@@ -239,7 +239,7 @@ export const CreateProjectModal: React.FC<CreateProjectModalProps> = ({ open, on
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Form.Item name="github_repo_url" label="GitHub Remote URL (Opcional)" className="sm:col-span-2 mb-0!">
-                <Input placeholder="https://github.com/loft-br/meu-frontend.git" />
+                <Input placeholder="https://github.com/pycriador/meu-frontend.git" />
               </Form.Item>
               <Form.Item name="github_branch" label="Branch Padrão" className="mb-0!">
                 <Input placeholder="main" />

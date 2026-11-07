@@ -145,7 +145,7 @@ export const LandingPage: React.FC = () => {
           </div>
           <div>
             <div className="font-bold text-white text-base sm:text-lg tracking-wide leading-none flex items-center gap-1.5 sm:gap-2">
-              AIOps OpsPages
+              Olivelas OpsPages
               <Tag
                 className="border-0 font-mono text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 m-0"
                 style={{ backgroundColor: `${theme.primary}20`, color: theme.primary }}
@@ -154,7 +154,7 @@ export const LandingPage: React.FC = () => {
               </Tag>
             </div>
             <div className="text-[11px] sm:text-xs text-[#718096] mt-0.5">
-              Loft Static Hosting Platform &bull; GitHub Pages / Vercel-like
+              Olivelas Static Hosting Platform &bull; GitHub Pages / Vercel-like
             </div>
           </div>
         </div>
@@ -231,7 +231,7 @@ export const LandingPage: React.FC = () => {
         {/* Announcement Pill */}
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#1A2024] border border-[#2D3748] text-xs text-[#E2E8F0] mb-6 sm:mb-8 shadow-xs max-w-full">
           <Sparkles className="w-3.5 h-3.5 text-[#F56738] shrink-0" />
-          <span className="truncate">Hospedagem Estática GitHub Pages-like da Loft</span>
+          <span className="truncate">Hospedagem Estática GitHub Pages-like da Olivelas</span>
           <span className="w-1.5 h-1.5 rounded-full bg-[#20A483] shrink-0" />
           <span className="text-[#20A483] font-medium hidden sm:inline">
             Versionamento Git em /repos
@@ -242,7 +242,7 @@ export const LandingPage: React.FC = () => {
         <h1 className="text-3xl sm:text-5xl lg:text-7xl font-extrabold text-white tracking-tight max-w-4xl leading-[1.15] mb-5 sm:mb-6">
           O GitHub Pages das Builds Estáticas da{' '}
           <span className="text-transparent bg-clip-text bg-linear-to-r from-[#F56738] via-[#FF8A65] to-[#F56738]">
-            Loft
+            Olivelas
           </span>
         </h1>
 
@@ -369,7 +369,7 @@ export const LandingPage: React.FC = () => {
             Tudo o que sua squad precisa para publicar e versionar builds
           </h2>
           <p className="text-base text-[#A0AEC0] max-w-2xl mx-auto mt-3">
-            Construído seguindo o padrão corporativo AIOps da Loft (FastAPI, SQLAlchemy 2.0, Git Engine, Vite e Ant Design Copan).
+            Construído seguindo o padrão corporativo Olivelas (FastAPI, SQLAlchemy 2.0, Git Engine, Vite e Ant Design Copan).
           </p>
         </div>
 
@@ -764,11 +764,11 @@ curl -X POST "${window.location.origin}/api/v1/projects/1/deployments/upload" \\
             </div>
             <pre className="bg-[#0E1216] p-4 rounded-xl text-xs font-mono text-[#E2E8F0] overflow-x-auto leading-relaxed border border-[#22292E]">
 {`# Listar usuários e papéis HBAC cadastrados
-python -m app.cli.manage_users list
+python3 backend/scripts/manage_users.py list
 
 # Alterar permissão de um usuário (admin | editor | viewer)
-python -m app.cli.manage_users set-role \\
-  --email dev@loft.com.br \\
+python3 backend/scripts/manage_users.py set-role \\
+  --email dev@olivelas.com \\
   --role editor`}
             </pre>
           </div>
@@ -786,7 +786,7 @@ python -m app.cli.manage_users set-role \\
               Topologia do Sistema
             </Tag>
             <h2 className="text-3xl sm:text-4xl font-bold text-white mt-3">
-              Arquitetura de Isolamento &amp; Versionamento Loft
+              Arquitetura de Isolamento &amp; Versionamento Olivelas
             </h2>
             <p className="text-base text-[#A0AEC0] max-w-2xl mx-auto mt-2">
               Segurança em camadas, validação contra Zip-Slip, tokens com hash SHA-256 e compatibilidade com SQLite, PostgreSQL e MariaDB.
@@ -799,13 +799,13 @@ python -m app.cli.manage_users set-role \\
                 1. Pipelines CI/CD &amp; Console Web
               </div>
               <p className="text-xs text-[#A0AEC0] leading-relaxed">
-                Squads da Loft enviam artefatos estáticos (React, Vite, Vue, documentações) via upload drag-and-drop ou pipelines automatizados usando tokens de escopo restrito.
+                Squads da Olivelas enviam artefatos estáticos (React, Vite, Vue, documentações) via upload drag-and-drop ou pipelines automatizados usando tokens de escopo restrito.
               </p>
             </div>
 
             <div className="p-6 rounded-2xl bg-[#141A1E] border border-[#22292E]">
               <div className="text-[#20A483] font-bold text-lg mb-2">
-                2. AIOps OpsPages Control Plane
+                2. Olivelas OpsPages Control Plane
               </div>
               <p className="text-xs text-[#A0AEC0] leading-relaxed">
                 Autentica via JWT e API Keys SHA-256, valida cotas, verifica regras de Lock de versão e Auto-Approval, aplica HBAC e registra tudo na auditoria forense.
@@ -831,7 +831,7 @@ python -m app.cli.manage_users set-role \\
             Pronto para publicar e versionar as builds do seu projeto?
           </h2>
           <p className="text-[#A0AEC0] text-base mb-8 max-w-xl mx-auto">
-            Acesse o AIOps OpsPages agora mesmo e gerencie seus repositórios estáticos em /repos com governança completa.
+            Acesse o Olivelas OpsPages agora mesmo e gerencie seus repositórios estáticos em /repos com governança completa.
           </p>
           <Button
             type="primary"
@@ -861,7 +861,7 @@ python -m app.cli.manage_users set-role \\
             ▲
           </div>
           <span>
-            &copy; {new Date().getFullYear()} Loft &bull; AIOps OpsPages Platform. Todos os direitos reservados.
+            &copy; {new Date().getFullYear()} Olivelas &bull; Olivelas OpsPages Platform. Todos os direitos reservados.
           </span>
         </div>
 

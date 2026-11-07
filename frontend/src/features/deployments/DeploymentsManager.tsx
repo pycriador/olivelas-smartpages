@@ -248,7 +248,7 @@ export const DeploymentsManager: React.FC = () => {
 </head>
 <body>
   <main class="container">
-    <span class="badge">AIOps OpsPages • ${nextVer}</span>
+    <span class="badge">Olivelas OpsPages • ${nextVer}</span>
     <h1>${activeProject.name}</h1>
     <p>Build estática hospedada e versionada em <code>/repos/${activeProject.slug}</code>.</p>
     <div id="app-status">Carregando runtime...</div>

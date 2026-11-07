@@ -491,7 +491,7 @@ export const IamManager: React.FC = () => {
             <Input placeholder="joao.silva" />
           </Form.Item>
           <Form.Item name="email" label="E-mail Corporativo" rules={[{ required: true }]}>
-            <Input placeholder="joao.silva@loft.com.br" />
+            <Input placeholder="joao.silva@olivelas.com.br" />
           </Form.Item>
           <Form.Item name="password" label="Senha Inicial" rules={[{ required: true }]}>
             <Input.Password placeholder="Mínimo 6 caracteres" />
