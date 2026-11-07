@@ -1,10 +1,11 @@
 # Olivelas SmartPages — Static Hosting, Git Versioning & Governance Control Plane
 
-Plataforma corporativa de hospedagem de builds estáticas, controle de versões Git (`/repos`), políticas de segurança (CORS/CSP), gerenciamento de quotas e governança HBAC multi-tenant integrada ao **Supabase** em um schema PostgreSQL isolado (`smartpages`).
+Plataforma corporativa da **Olivelas** para hospedagem de builds estáticas, controle de versões Git (`/repos`), políticas de segurança (CORS/CSP), gerenciamento de quotas e governança HBAC multi-tenant integrada ao **Supabase** em um schema PostgreSQL isolado (`smartpages`) e publicada no **GitHub Pages**.
 
 - **Repositório Oficial**: [https://github.com/pycriador/olivelas-smartpages](https://github.com/pycriador/olivelas-smartpages)
 - **GitHub Pages (Live)**: [https://pycriador.github.io/olivelas-smartpages/](https://pycriador.github.io/olivelas-smartpages/)
 - **Schema Isolado no Supabase**: `smartpages`
+- **Documentação Técnica Completa (`docs/`)**: [Índice Mestre da Documentação](docs/README.md)
 
 ---
 
@@ -14,8 +15,8 @@ Toda a persistência de dados deste projeto opera estritamente dentro do schema 
 
 | Tabela (`smartpages.*`) | Finalidade | Estado Inicial (Seed) |
 | :--- | :--- | :--- |
-| `opspages_platform_settings` | Configurações globais da plataforma, identidade, políticas de autenticação e quotas padrão | **5 configurações padrão** |
-| `opspages_themes` | Catálogo oficial de temas visuais (10 Light + 10 Dark) e personalizações | **20 temas oficiais** |
+| `opspages_platform_settings` | Configurações globais da plataforma (`Olivelas Engineering`), identidade, políticas de autenticação e quotas padrão | **5 configurações padrão** |
+| `opspages_themes` | Catálogo oficial de temas visuais (10 Light + 10 Dark, incluindo `Olivelas Obsidian` e `Olivelas Classic`) | **20 temas oficiais** |
 | `opspages_groups` | Grupos de controle de acesso HBAC (`Platform Admins`, `Frontend Editors`, `Project Viewers`) | **3 grupos HBAC** |
 | `opspages_users` | Contas de usuários da plataforma | **0 registros** (1º cadastro = Global Admin) |
 | `opspages_user_groups` | Vínculo N:N entre usuários e grupos HBAC | **0 registros** |
@@ -119,10 +120,42 @@ As credenciais do Supabase utilizadas pelo Frontend e pelo Backend são configur
 
 ---
 
-## 6. Execução Local (Backend + Frontend)
+## 6. Mapa da Documentação Técnica (`docs/`)
+
+- **Índice Mestre**: [`docs/README.md`](docs/README.md)
+- **Level 0 — AI Entrypoint**: [`docs/ai-context.md`](docs/ai-context.md)
+- **Level 1 — Visão Geral do Projeto**: [`docs/project-overview.md`](docs/project-overview.md)
+- **Level 2 — Arquitetura e Aplicações**:
+  - [`docs/architecture/overview.md`](docs/architecture/overview.md)
+  - [`docs/architecture/system-context.md`](docs/architecture/system-context.md)
+  - [`docs/application/backend-service.md`](docs/application/backend-service.md)
+  - [`docs/application/frontend-console.md`](docs/application/frontend-console.md)
+  - [`docs/application/portal-loft-site.md`](docs/application/portal-loft-site.md)
+- **Level 3 — Contratos de API, Modelo de Dados e HBAC**:
+  - [`docs/contracts/api-contracts.md`](docs/contracts/api-contracts.md)
+  - [`docs/contracts/data-model.md`](docs/contracts/data-model.md)
+  - [`docs/contracts/hbac-matrix.md`](docs/contracts/hbac-matrix.md)
+- **Level 4 — Operações, Runbook e Monitoramento**:
+  - [`docs/operations/service-profile.md`](docs/operations/service-profile.md)
+  - [`docs/operations/runbook.md`](docs/operations/runbook.md)
+  - [`docs/operations/monitoring-audit.md`](docs/operations/monitoring-audit.md)
+- **Level 5 — Segurança, Limites de Confiança e Conformidade**:
+  - [`docs/security/overview.md`](docs/security/overview.md)
+  - [`docs/security/trust-boundaries.md`](docs/security/trust-boundaries.md)
+  - [`docs/security/controls-and-compliance.md`](docs/security/controls-and-compliance.md)
+- **Level 6 — Evidências & Lacunas e ADRs**:
+  - [`docs/knowledge-gaps.md`](docs/knowledge-gaps.md)
+  - [`docs/decisions/0001-git-backed-static-releases-in-repos.md`](docs/decisions/0001-git-backed-static-releases-in-repos.md)
+  - [`docs/decisions/0002-multi-database-sqlalchemy-abstraction.md`](docs/decisions/0002-multi-database-sqlalchemy-abstraction.md)
+  - [`docs/decisions/0003-runtime-public-config-and-security-headers.md`](docs/decisions/0003-runtime-public-config-and-security-headers.md)
+  - [`docs/decisions/0004-supabase-smartpages-schema-and-github-pages.md`](docs/decisions/0004-supabase-smartpages-schema-and-github-pages.md)
+
+---
+
+## 7. Execução Local (Backend + Frontend)
 
 ```bash
-# Iniciar Backend FastAPI (porta 8005) e Frontend Vite (porta 5176/5185)
+# Iniciar Backend FastAPI (porta 8005) e Frontend Vite (porta 5176)
 ./start.sh
 
 # Executar suíte de testes automatizados do Backend

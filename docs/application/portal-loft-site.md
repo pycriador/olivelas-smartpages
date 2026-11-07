@@ -1,24 +1,26 @@
 ---
-title: "Portal Loft — Página Estática Real em TypeScript (sites/portal-loft)"
+title: "Portal Olivelas — Aplicação Estática de Exemplo em TypeScript (sites/portal-loft)"
 status: "ACCEPTED"
-owner: "aiops-platform-team"
+owner: "olivelas-platform-team"
 created: "2026-10-20"
-updated: "2026-10-20"
-review_date: "2027-01-20"
-version: "1.1"
+updated: "2026-11-07"
+review_date: "2027-02-07"
+version: "2.0"
 ---
 
 > Language: pt-BR
 >
 > Status: ACCEPTED
 >
-> Documentation Standard v1.0 (Loft AIOps)
+> Documentation Standard v1.0 (Olivelas)
 
-# Level 2 — Portal Loft (`application/portal-loft-site.md`)
+# Level 2 — Portal de Exemplo em TypeScript (`application/portal-loft-site.md`)
 
 ## 1. Propósito (`Confirmed`)
 
-O diretório [`sites/portal-loft/`](../../sites/portal-loft/) contém o código-fonte em **TypeScript** da primeira aplicação estática 100% real hospedada e versionada no **AIOps OpsPages**: o **Portal Loft**, um portal editorial de notícias de Tecnologia, Inteligência Artificial, Cloud Computing, Cibersegurança e Semicondutores inspirado em grandes portais (UOL Tilt / Terra Tecnologia) com a identidade visual **Loft Copan (`#FF5A26`)**.
+O diretório [`sites/portal-loft/`](../../sites/portal-loft/) contém o código-fonte em **TypeScript** de uma aplicação estática de referência pronta para compilação e upload no **Olivelas SmartPages (`Olivelas OpsPages`)**: um portal editorial multilíngue (**PT-BR**, **EN**, **ES**) de notícias de Tecnologia, Inteligência Artificial, Cloud Computing, Cibersegurança e Semicondutores.
+
+> **Nota sobre o Estado Inicial do Banco**: Conforme definido no ADR-0004, o banco de produção no Supabase (`smartpages`) inicia com **0 projetos cadastrados** para permitir que os administradores cadastrem seus próprios projetos do zero. Este diretório permanece disponível no repositório como template e exemplo de build TypeScript para testes ou publicação manual.
 
 ---
 
@@ -32,36 +34,24 @@ sites/portal-loft/
 │   └── build.mjs             # Compila TS -> JS e empacota HTML, CSS, JS e IMG em dist/
 ├── src/
 │   ├── types.ts              # Tipagens de artigos, categorias, cotações e traduções (PT-BR, EN, ES)
-│   ├── data.ts               # Acervo completo de notícias reais de tecnologia traduzidas em 3 idiomas
-│   └── main.ts               # Motor de renderização, busca, filtro por editoria, modal de leitura e i18n
+│   ├── data/                 # Acervo completo de notícias reais de tecnologia traduzidas em 3 idiomas
+│   └── app.ts                # Motor de renderização, busca, filtro por editoria, modal de leitura e i18n
 ├── public/
-│   ├── index.html            # Estrutura semântica HTML5 do Portal Loft
-│   ├── styles.css            # Design responsivo editorial Copan
-│   └── img/                  # 6 imagens fotojornalísticas geradas por IA
-└── dist/                     # Artefato final estático (HTML + CSS + JS + IMG + build-manifest.json)
+│   ├── index.html            # Estrutura semântica HTML5
+│   ├── css/styles.css        # Design responsivo editorial Copan
+│   └── img/                  # Imagens fotojornalísticas das reportagens
+└── dist/                     # Artefato final estático (HTML + CSS + JS + IMG)
 ```
 
 ---
 
-## 3. Releases Publicadas em `/repos/portal-loft` (`Confirmed`)
-
-| Versão | Status | Recursos | URL de Acesso / Preview |
-| :---: | :---: | :--- | :--- |
-| **`1.0.0`** | `ready` (Tag Git `v1.0.0`) | Portal editorial completo com 6 reportagens ilustradas, busca, filtro por editoria, leitura em modal e tema claro/escuro | `http://localhost:8005/pages/portal-loft/v/1.0.0/` |
-| **`1.1.0`** | `published` (**LIVE** / Tag Git `v1.1.0`) | Seletor de idiomas completo em **PT-BR**, **EN** e **ES** (com sincronização em `?lang=` e `localStorage`), barra de progresso de leitura, compartilhamento de link traduzido e filtro rápido por tags | `http://localhost:8005/pages/portal-loft/` |
-
----
-
-## 4. Como Compilar e Baixar (`Confirmed`)
+## 3. Como Compilar e Publicar no Olivelas SmartPages (`Confirmed`)
 
 ```bash
-# Compilar código TypeScript para dist/ (HTML, CSS, JS e IMG)
+# 1. Compilar código TypeScript para dist/ (HTML, CSS, JS e IMG)
 cd sites/portal-loft
 npm run build
 
-# Baixar o pacote HTML estático pronto para qualquer servidor local (.zip)
-curl -O "http://localhost:8005/api/v1/public/projects/portal-loft/download-build?version=1.1.0"
-
-# Baixar o código-fonte completo em TypeScript (.zip)
-curl -O "http://localhost:8005/api/v1/public/projects/portal-loft/download-source?version=1.1.0"
+# 2. Empacotar o diretório dist/ em um arquivo .zip para upload na plataforma
+cd dist && zip -r ../portal-build-v1.1.0.zip .
 ```

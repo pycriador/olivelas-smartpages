@@ -1,6 +1,6 @@
-# Portal Loft — Tecnologia, IA & Engenharia (v1.1.0)
+# Portal Olivelas — Tecnologia, IA & Engenharia (v1.1.0)
 
-Portal editorial estático multilíngue (**PT-BR**, **EN**, **ES**) de notícias sobre **Inteligência Artificial**, **Engenharia de Software**, **Cloud & DevOps**, **Segurança Cibernética** e **Semicondutores**, desenvolvido em **TypeScript** seguindo a identidade visual **Copan Design System (Loft)** e o layout editorial de grandes portais (UOL Tilt / Terra Tecnologia).
+Portal editorial estático multilíngue (**PT-BR**, **EN**, **ES**) de notícias sobre **Inteligência Artificial**, **Engenharia de Software**, **Cloud & DevOps**, **Segurança Cibernética** e **Semicondutores**, desenvolvido em **TypeScript** seguindo a identidade visual **Copan Design System (Olivelas)** e o layout editorial de grandes portais (UOL Tilt / Terra Tecnologia).
 
 ---
 

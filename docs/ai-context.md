@@ -1,33 +1,36 @@
 ---
-title: "Contexto Primário para Agentes de IA — AIOps OpsPages"
+title: "Contexto Primário para Agentes de IA — Olivelas SmartPages (Olivelas OpsPages)"
 status: "ACCEPTED"
-owner: "aiops-platform-team"
+owner: "olivelas-platform-team"
 created: "2026-10-20"
-updated: "2026-10-20"
-review_date: "2027-01-20"
-version: "1.1"
+updated: "2026-11-07"
+review_date: "2027-02-07"
+version: "2.0"
 ---
 
 > Language: pt-BR
 >
 > Status: ACCEPTED
 >
-> Documentation Standard v1.0 (Loft AIOps)
+> Documentation Standard v1.0 (Olivelas)
 
 # Level 0 — Contexto Primário para Agentes de IA (`ai-context.md`)
 
-Este documento é o **ponto de entrada obrigatório (Level 0)** para qualquer agente de IA que opere sobre o repositório **AIOps OpsPages**.
+Este documento é o **ponto de entrada obrigatório (Level 0)** para qualquer agente de IA que opere sobre o repositório **Olivelas SmartPages (Olivelas OpsPages)**.
 
 ---
 
 ## 1. Identidade do Sistema (`Confirmed`)
 
-- **Nome do Produto:** AIOps OpsPages
-- **Propósito:** Plataforma corporativa estilo GitHub Pages / Vercel para hospedagem, versionamento Git em `/repos/{slug}`, governança de publicação (`Version Lock`, `Auto-Approval`), injeção de configuração pública do OpsBase (`env-config.js`) e auditoria forense de builds estáticas.
-- **Portas Canônicas de Execução:**
+- **Nome do Produto:** Olivelas SmartPages (`Olivelas OpsPages`)
+- **Repositório Oficial:** [`https://github.com/pycriador/olivelas-smartpages`](https://github.com/pycriador/olivelas-smartpages)
+- **Publicação GitHub Pages:** [`https://pycriador.github.io/olivelas-smartpages/`](https://pycriador.github.io/olivelas-smartpages/)
+- **Propósito:** Plataforma corporativa estilo GitHub Pages / Vercel para hospedagem de builds estáticas, versionamento Git em `/repos/{slug}` e no banco (`opspages_release_files`), governança de publicação (`Version Lock`, `Auto-Approval`), injeção de configuração pública do Olivelas OpsBase (`env-config.js`) e auditoria forense.
+- **Banco de Dados Principal:** Supabase PostgreSQL (`https://flxcgbftpwjvxetqbtzq.supabase.co`) operando exclusivamente no schema isolado **`smartpages`** (`DB_SCHEMA=smartpages`, `VITE_SUPABASE_SCHEMA=smartpages`).
+- **Política de Primeiro Cadastro (Global Admin):** A tabela `smartpages.opspages_users` inicia com `0` registros. O **primeiro usuário cadastrado** na plataforma (via UI, API, RPC ou CLI) torna-se automaticamente **Global Admin** (`is_superuser = true` + grupo `Platform Admins`).
+- **Portas Canônicas de Execução Local:**
   - **Backend FastAPI (`app.main:app`):** `http://localhost:8005`
   - **Frontend Console React (`Vite`):** `http://localhost:5176`
-- **Super Admin Padrão:** `willian.jesus@loft.com.br` (credenciais lidas exclusivamente do `.env` local; nunca hardcoded no código ou na UI).
 
 ---
 
@@ -35,32 +38,29 @@ Este documento é o **ponto de entrada obrigatório (Level 0)** para qualquer ag
 
 | Caminho no Repositório | Papel Técnico |
 | :--- | :--- |
+| `supabase/migrations/` | Migrations SQL oficiais do schema `smartpages` (`001` tabelas e triggers, `002` seed de configurações, grupos HBAC e 20 temas, `003` RPCs PostgREST e RLS) |
 | `backend/app/main.py` | Ponto de entrada FastAPI, middlewares de segurança (`P-8`, `P-10`), injeção de config pública (`P-13`), servidor estático `/pages/{slug}` (`P-1` a `P-7`, `P-9`) |
-| `backend/app/services/opsbase_service.py` | Cliente de descoberta OpsBase (`http://localhost:8001/api/v1`), validação de chave pública (`anon_key`), sincronização de rotação/revogação sem redeploy e alinhamento de origens CORS |
-| `backend/app/api/v1/governance_routes.py` | Rotas de governança, configuração pública por ambiente (`?env=` estrito), webhook `/webhooks/opsbase/key-event`, `/opsbase/sync` e `/opsbase/cors-sync` |
-| `backend/app/api/v1/routes.py` | Todos os endpoints REST sob `/api/v1` (auth, overview, projects, deployments, git, tokens, iam, quotas, cors, public-config, audit, errors) |
-| `backend/app/api/deps.py` | Dependências de autenticação JWT e API Keys via header (`Authorization`, `X-API-Key`, `apikey`) e rejeição de `?token=` na URL (`P-8`) |
-| `backend/app/models/meta_models.py` | Modelos ORM SQLAlchemy 2.0 (`User`, `Group`, `Project`, `ProjectPermission`, `Deployment`, `ApiToken`, `CorsRule`, `ProjectPublicConfig`, `ErrorReport`, `AuditLog`) |
-| `backend/app/services/git_storage.py` | Motor Git e sistema de arquivos em `/repos/{slug}` (`git_repo/`, `releases/{version}/`, `current/`, proteção Zip-Slip, suporte a binários Base64) |
-| `backend/scripts/` | Scripts CLI administrativos (`setup_db.py`, `create_admin.py`, `manage_users.py`, `change_password.py`) |
-| `frontend/src/App.tsx` | Roteador principal sincronizado com `window.location.pathname` |
-| `frontend/src/utils/urlState.ts` | Hook `useUrlTableState` para sincronizar busca (`q`), filtros (`status`) e paginação (`page`, `page_size >= 10`) na URL |
-| `frontend/src/features/` | Módulos de UI (`landing`, `auth`, `projects`, `deployments`, `explorer`, `git`, `tokens`, `iam`, `quotas`, `cors`, `config`, `audit`, `errors`, `settings`) |
-| `sites/portal-loft/` | Código-fonte TypeScript real do projeto **Portal Loft** (`v1.0.0` e `v1.1.0` com seletor de idiomas `PT-BR`/`EN`/`ES`) |
+| `backend/app/core/config.py` | Configuração Pydantic v2 lendo `.env`, tradução automática do host direto Supabase para o Session Pooler IPv4 (`aws-1-us-west-2.pooler.supabase.com`) e `DB_SCHEMA=smartpages` |
+| `backend/app/db/session.py` | Inicialização SQLAlchemy 2.0 com `search_path=smartpages,public,extensions`, seed exclusivo de configurações da plataforma, grupos HBAC e 20 temas |
+| `backend/app/api/v1/auth.py` | Endpoints `/api/v1/auth/bootstrap-status`, `/api/v1/auth/register` (1º usuário = Global Admin), `/api/v1/auth/login`, `/api/v1/auth/me` e `/api/v1/auth/change-password` |
+| `backend/app/services/opsbase_service.py` | Cliente de descoberta Olivelas OpsBase (`http://localhost:8001/api/v1`), validação de `anon_key`, backoff exponencial de login (`P-22`), passthrough de `rls_enforced` (`P-24`) e alinhamento de CORS |
+| `backend/app/models/meta_models.py` | Modelos ORM SQLAlchemy 2.0 das 15 tabelas `opspages_*` no schema `smartpages` |
+| `backend/scripts/manage_users.py` | CLI completa para gerenciar usuários e roles HBAC diretamente no Supabase (`status`, `list`, `create`, `set-role`, `promote-admin`, `revoke-admin`, `reset-password`, `activate`, `deactivate`, `delete`) |
+| `backend/scripts/setup_db.py` | CLI para aplicar as migrations SQL no Supabase (`smartpages`) e inspecionar contadores do schema |
+| `backend/scripts/examples_supabase_cli.sh` | Receitas interativas e exemplos práticos de gerenciamento de usuários no Supabase via CLI |
+| `frontend/src/services/supabaseBridge.ts` | Ponte REST/RPC direta do Frontend (GitHub Pages) para o schema `smartpages` do Supabase (`Accept-Profile: smartpages`), permitindo operação serverless completa |
+| `.github/workflows/deploy.yml` | Pipeline CI/CD GitHub Actions para build e publicação automática no GitHub Pages com secrets do Supabase |
 
 ---
 
 ## 3. Invariantes e Restrições Não-Negociáveis (`Constraints`)
 
-1. **Proibição de Credenciais Hardcoded**: Nenhuma senha, `SECRET_KEY` ou token real pode ser inserido no código-fonte, na tela de login (`LoginPage.tsx`) ou na documentação.
-2. **Tokens Exclusivamente via Header (`P-8`)**: Qualquer requisição contendo `?token=`, `?access_token=` ou `?api_key=` na query string deve ser rejeitada com `401 Unauthorized`.
-3. **CORS Estrito (`P-9` & `P-10`)**:
+1. **Isolamento Estrito no Schema `smartpages`**: Nenhuma tabela, função ou trigger deste projeto deve ser criada no schema `public` do Supabase; tudo reside em `smartpages.*`.
+2. **Proibição de Credenciais Hardcoded**: Nenhuma senha, `SECRET_KEY` ou chave privada pode ser inserida no código-fonte ou na documentação. As credenciais vivem no `.env` local (ignorado pelo Git) e nos **GitHub Actions Secrets**.
+3. **Tokens Exclusivamente via Header (`P-8`)**: Qualquer requisição contendo `?token=`, `?access_token=` ou `?api_key=` na query string deve ser rejeitada com `401 Unauthorized`.
+4. **CORS Estrito (`P-9` & `P-10`)**:
    - Nunca retornar `Access-Control-Allow-Origin: *` junto com `Access-Control-Allow-Credentials: true`.
    - Sempre incluir `Vary: Origin` ao validar origens dinâmicas.
-   - Nunca emitir `Access-Control-Allow-Credentials: true` para origens fora da allowlist do projeto.
-4. **Proteção de Previews Não Aprovados (`P-4`)**: Releases com status `pending_approval`, `rejected` ou `failed` em `/pages/{slug}/v/{version}` exigem autenticação via header até serem aprovadas.
-5. **Sanitização de Dados Públicos (`P-11`)**: O endpoint público `GET /api/v1/public/overview` e `GET /health` não podem expor e-mails pessoais nem caminhos físicos de disco (`repos_root`, `repo_disk_path`).
-6. **Paginação e Rotas no Frontend**:
-   - Toda tela do console possui sua própria rota de URL (`/dashboard`, `/deployments`, `/explorer`, `/git`, `/tokens`, `/iam`, `/quotas`, `/cors`, `/public-config`, `/audit`, `/errors`, `/settings`).
-   - Toda listagem paginada deve sincronizar seus parâmetros na URL e exibir no mínimo **10 itens por página** (`pageSize >= 10`).
+5. **Proteção de Previews Não Aprovados (`P-4`)**: Releases com status `pending_approval`, `rejected` ou `failed` em `/pages/{slug}/v/{version}` exigem autenticação via header até serem aprovadas.
+6. **Sanitização de Dados Públicos (`P-11`)**: O endpoint público `GET /api/v1/public/overview` e `GET /health` nunca expõem e-mails pessoais nem caminhos físicos de disco para visitantes anônimos.
 7. **Atualização Documental Atômica**: Qualquer alteração em rotas de API, tabelas de banco ou regras de segurança exige atualização simultânea em [`docs/contracts/`](contracts/) e [`docs/security/`](security/).
